@@ -1,4 +1,10 @@
 # jokati
+
+kubebuilder version                                                         
+Version: main.version{KubeBuilderVersion:"3.14.0", KubernetesVendor:"1.27.1", GitCommit:"11053630918ac421cb6eb6f0a3225e2a2ad49535", BuildDate:"2024-01-30T09:29:27Z", GoOs:"linux", GoArch:"amd64"}
+
+
+
 // TODO(user): Add simple overview of use/purpose
 
 ## Description

@@ -35,7 +35,7 @@ func (r *NotificationReconciler) GetSynchronizationTime(notificationManifest *jo
 func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, notificationManifest *jokativ1alpha1.Notification) (err error) {
 
 	log.Print("El manifiesto es este")
-	log.Print(notificationManifest)
+	//log.Print(notificationManifest)
 
 	return err
 }

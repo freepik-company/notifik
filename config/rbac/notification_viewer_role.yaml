@@ -6,8 +6,8 @@ metadata:
     app.kubernetes.io/name: clusterrole
     app.kubernetes.io/instance: notification-viewer-role
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: jokati2
-    app.kubernetes.io/part-of: jokati2
+    app.kubernetes.io/created-by: jokati
+    app.kubernetes.io/part-of: jokati
     app.kubernetes.io/managed-by: kustomize
   name: notification-viewer-role
 rules:

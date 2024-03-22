@@ -5,7 +5,7 @@
 domain: freepik.com
 layout:
 - go.kubebuilder.io/v4
-projectName: jokati2
+projectName: jokati
 repo: freepik.com/jokati
 resources:
 - api:

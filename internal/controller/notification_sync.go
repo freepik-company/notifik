@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"log"
 	"time"
 
 	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
@@ -30,8 +31,11 @@ func (r *NotificationReconciler) GetSynchronizationTime(notificationManifest *jo
 	return synchronizationTime, err
 }
 
-// reconcileNotification call Kubernetes API to actually Notification the resource
-func (r *NotificationReconciler) reconcileNotification(ctx context.Context, notificationManifest *jokativ1alpha1.Notification) (err error) {
+// ReconcileNotification call Kubernetes API to actually Notification the resource
+func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, notificationManifest *jokativ1alpha1.Notification) (err error) {
+
+	log.Print("El manifiesto es este")
+	log.Print(notificationManifest)
 
 	return err
 }

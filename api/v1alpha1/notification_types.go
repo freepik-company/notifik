@@ -18,8 +18,14 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
+
+// TODO
+type GroupVersionResource struct {
+	Group    string `json:"group"`
+	Version  string `json:"version"`
+	Resource string `json:"resource"`
+}
 
 // TODO
 type NotificationCondition struct {
@@ -44,9 +50,9 @@ type NotificationSpec struct {
 	// SynchronizationSpec defines the behavior of synchronization
 	Synchronization SynchronizationSpec `json:"synchronization"`
 
-	Watch      schema.GroupVersionResource `json:"watch"`
-	Conditions []NotificationCondition     `json:"conditions"`
-	Message    NotificationMessage         `json:"message"`
+	Watch      GroupVersionResource    `json:"watch"`
+	Conditions []NotificationCondition `json:"conditions"`
+	Message    NotificationMessage     `json:"message"`
 }
 
 // NotificationStatus defines the observed state of Notification

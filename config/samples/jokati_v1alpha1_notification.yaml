@@ -4,9 +4,31 @@ metadata:
   labels:
     app.kubernetes.io/name: notification
     app.kubernetes.io/instance: notification-sample
-    app.kubernetes.io/part-of: jokati2
+    app.kubernetes.io/part-of: jokati
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: jokati2
+    app.kubernetes.io/created-by: jokati
   name: notification-sample
 spec:
-  # TODO(user): Add fields here
+  # Synchronization parameters
+  synchronization:
+    time: "10s"
+
+  # Resource to be watched
+  watch:
+    group: tekton.dev
+    version: v1
+    resource: pipelineruns
+
+  conditions:
+    - name: pepito
+      # The 'key' field admits vitamin Golang templating (well known from Helm)
+      # The result of this field will be compared with 'value' for equality
+      key: |
+        {{- $source := (index . 0) -}}
+        {{ printf "%s" $source.metadata.name }}
+      value: notification-sample
+
+  message:
+    reason: "PipelineRunTimeout"
+    data: |
+      {{- $source := (index . 0) -}}

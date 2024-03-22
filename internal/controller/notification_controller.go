@@ -123,7 +123,7 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// 7. The Notification CR already exist: manage the update
-	err = r.reconcileNotification(ctx, notificationManifest)
+	err = r.ReconcileNotification(ctx, notificationManifest)
 	if err != nil {
 		LogInfof(ctx, notificationReconcileError, notificationManifest.Name)
 		return result, err

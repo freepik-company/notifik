@@ -2,7 +2,7 @@ package controller
 
 import (
 	"context"
-	"log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"time"
 
 	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
@@ -33,8 +33,12 @@ func (r *NotificationReconciler) GetSynchronizationTime(notificationManifest *jo
 
 // ReconcileNotification call Kubernetes API to actually Notification the resource
 func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, notificationManifest *jokativ1alpha1.Notification) (err error) {
+	// TODO check if is the last watcher of his resource type in global map
+	// TODO remove from global map the current deleted resource type or the conditions only
 
-	log.Print("El manifiesto es este")
+	logger := log.FromContext(ctx)
+	_ = logger
+
 	//log.Print(notificationManifest)
 
 	return err

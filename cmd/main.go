@@ -19,6 +19,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"freepik.com/jokati/internal/globals"
 	"freepik.com/jokati/internal/xyz"
 	"os"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -49,15 +50,6 @@ func init() {
 
 	utilruntime.Must(jokativ1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
-
-	// TODO: Add Pool processor here
-	// Ref: https://book.kubebuilder.io/reference/metrics
-	//go func() {
-	//	for {
-	//		log.Print("Hola, estamos iniciando un bucle aparte")
-	//		time.Sleep(5 * time.Second)
-	//	}
-	//}()
 }
 
 func main() {
@@ -134,19 +126,12 @@ func main() {
 	if err = (&controller.NotificationReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("notification-controller"),
+		Recorder: mgr.GetEventRecorderFor("notification-controller"), // TODO: DO WE WANT EVENTS ON THIS?
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Notification")
 		os.Exit(1)
 	}
 
-	if err = (&xyz.WorkloadReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Workload")
-		os.Exit(1)
-	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
@@ -158,17 +143,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	// TODO: Add Pool processor here
-	// Ref: https://book.kubebuilder.io/reference/metrics
-	//go func() {
-	//	for {
-	//		log.Print("HOLA 2, estamos iniciando un bucle aparte")
-	//		time.Sleep(5 * time.Second)
-	//	}
-	//}()
+	// Define the context separated as it will be used by our custom controller too.
+	// This will synchronize goroutine death when the main controller is killed
+	//signalCtx := ctrl.SetupSignalHandler()
+	globals.Application.Context = ctrl.SetupSignalHandler()
+	globals.Application.KubeRawClient, err = globals.NewKubernetesClient()
+	if err != nil {
+		// TODO check the error
+	}
+
+	// TODO
+	workloadController := xyz.WorkloadController{
+		Client: mgr.GetClient(),
+		// Scheme:   mgr.GetScheme().,
+		// Recorder: mgr.GetEventRecorderFor("workload-controller"),
+	}
+
+	setupLog.Info("starting workload controller")
+	go workloadController.Start(globals.Application.Context)
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(globals.Application.Context); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}

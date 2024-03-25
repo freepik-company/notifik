@@ -18,9 +18,6 @@ package controller
 
 import (
 	"context"
-	"freepik.com/jokati/internal/globals"
-	"github.com/google/uuid"
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -150,22 +147,6 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *NotificationReconciler) SetupWithManager(mgr ctrl.Manager) error {
-
-	// Generate an execution ID for this boot
-	// Done this way as Workload Controller is asynchronously launched
-	executionId := uuid.New().String()
-	globals.ExecContext.Context = context.WithValue(globals.ExecContext.Context,
-		"execution-id", executionId)
-
-	r.Recorder.AnnotatedEventf(
-		&appsv1.Deployment{},
-		map[string]string{
-			"execution-id": executionId,
-		},
-		"Normal",
-		"NotificationControllerStarted",
-		"Notification Controller has been started %s",
-		"pepe")
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&jokativ1alpha1.Notification{}).

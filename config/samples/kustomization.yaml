@@ -1,4 +1,5 @@
 ## Append samples of your project ##
 resources:
+- configmap.yaml
 - jokati_v1alpha1_notification.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

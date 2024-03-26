@@ -1,6 +1,7 @@
 package globals
 
 import (
+	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
 	"k8s.io/client-go/dynamic"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
@@ -41,4 +42,32 @@ func SplitCommaSeparatedValues(input []string) []string {
 		result = append(result, parts...)
 	}
 	return result
+}
+
+// TODO
+func InitWatcher(watcherType ResourceTypeName) {
+
+	//initialStartedState := false // TODO: Decide
+	var initialStartedState bool = false
+	var initialNotificationListState []*jokativ1alpha1.Notification
+
+	Application.WatcherPool[watcherType] = ResourceTypeWatcherT{
+		Started:          &initialStartedState,
+		NotificationList: &initialNotificationListState,
+	}
+}
+
+// TODO
+func GetWatcherNotificationIndex(watcherType ResourceTypeName, notificationManifest *jokativ1alpha1.Notification) (result int) {
+
+	notificationList := Application.WatcherPool[watcherType].NotificationList
+
+	for notificationIndex, notification := range *notificationList {
+		if (notification.Name == notificationManifest.Name) &&
+			(notification.Namespace == notificationManifest.Namespace) {
+			return notificationIndex
+		}
+	}
+
+	return -1
 }

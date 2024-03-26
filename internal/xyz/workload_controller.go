@@ -29,6 +29,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"slices"
 	"strings"
+	"time"
+)
+
+const (
+	secondsBetweenWatchingRetries = 10 * time.Second
+
+	controllerContextFinishedMessage = "xyz.WorkloadController finished by context"
+	controllerWatcherStartedMessage  = "Watcher for '%s' has been started"
+
+	kubeWatcherStartFailedError   = "Impossible to watch resource type '%s'. RBAC issues?: %s"
+	watchedObjectParseError       = "Impossible to process watched object: %s"
+	runtimeObjectConversionError  = "Failed to parse object: %v"
+	resourceWatcherLaunchingError = "Impossible to start watcher for resource type: %s"
 )
 
 // WorkloadController TODO
@@ -43,7 +56,7 @@ func (r *WorkloadController) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("xyz.WorkloadController finished by context")
+			logger.Info(controllerContextFinishedMessage)
 			return
 		default:
 			r.ReconcileWatchers(ctx)
@@ -55,12 +68,16 @@ func (r *WorkloadController) Start(ctx context.Context) {
 func (r *WorkloadController) ReconcileWatchers(ctx context.Context) {
 	logger := log.FromContext(ctx)
 
-	_ = logger
-	// TODO
-
 	for resourceType, resourceTypeWatcher := range globals.Application.WatcherPool {
-		if !resourceTypeWatcher.Started {
+
+		if !*resourceTypeWatcher.Started {
 			go r.WatchType(ctx, resourceType)
+
+			// TODO: Explotó, y yo exploté de él
+			time.Sleep(secondsBetweenWatchingRetries)
+			if *(globals.Application.WatcherPool[resourceType].Started) == false {
+				logger.Info(fmt.Sprintf(resourceWatcherLaunchingError, resourceType))
+			}
 		}
 	}
 }
@@ -70,8 +87,18 @@ func (r *WorkloadController) WatchType(ctx context.Context, watchedType globals.
 
 	logger := log.FromContext(ctx)
 
+	logger.Info(fmt.Sprintf(controllerWatcherStartedMessage, watchedType))
+
+	// TODO: METER A FALSE EL FLAG DE RUNNING DE ESTA GOROUTINE
+	// Set ACK flag for watcher launching into the WatcherPool
+	*(globals.Application.WatcherPool[watchedType].Started) = true
+	defer func() {
+		*(globals.Application.WatcherPool[watchedType].Started) = false
+	}()
+
 	notificationList := globals.Application.WatcherPool[watchedType].NotificationList
 
+	// Extract GVR from watched type:
 	// {group}/{version}/{resource}
 	GVR := strings.Split(string(watchedType), "/")
 	if len(GVR) != 3 {
@@ -86,41 +113,38 @@ func (r *WorkloadController) WatchType(ctx context.Context, watchedType globals.
 	// Create a watcher for defined resources
 	resourceWatcher, err := globals.Application.KubeRawClient.Resource(resourceGVR).Watch(ctx, metav1.ListOptions{})
 	if err != nil {
-		// TODO
+		logger.Info(fmt.Sprintf(kubeWatcherStartFailedError, string(watchedType), err))
+		return
 	}
-
 	defer resourceWatcher.Stop()
 
 	for WatchEvent := range resourceWatcher.ResultChan() {
 		// Extract the unstructured object from the event
 		objectMap, err := GetObjectMapFromRuntimeObject(&WatchEvent.Object)
 		if err != nil {
-			logger.Error(err, fmt.Sprintf("failed to parse object: %v", err))
+			logger.Error(err, fmt.Sprintf(runtimeObjectConversionError, err))
 			continue
 		}
 
-		// Process the WatchEvent apart
+		// Process event for watched object apart
 		err = ProcessEvent(ctx, notificationList, objectMap, WatchEvent.Type)
 		if err != nil {
-			logger.Error(err, fmt.Sprintf("failed to process event: %v", err))
+			logger.Error(err, fmt.Sprintf(watchedObjectParseError, err))
 			continue
 		}
 	}
-
-	// TODO: METER A FALSE EL FLAG DE RUNNING DE ESTA GOROUTINE
 }
 
-func ProcessEvent(ctx context.Context, notificationList []*jokativ1alpha1.Notification, object map[string]interface{}, eventType watch.EventType) (err error) {
+func ProcessEvent(ctx context.Context, notificationList *[]*jokativ1alpha1.Notification, object map[string]interface{}, eventType watch.EventType) (err error) {
 	logger := log.FromContext(ctx)
 
 	if eventType == watch.Added || eventType == watch.Modified || eventType == watch.Deleted {
-		for _, notification := range notificationList {
+		for _, notification := range *notificationList {
 			var conditionFlags []bool
 			for _, condition := range notification.Spec.Conditions {
 				parsedKey, err := template.EvaluateTemplate(condition.Key, object)
 				if err != nil {
 				}
-				// TODO compare the key with value and check conditions
 				conditionFlags = append(conditionFlags, parsedKey == condition.Value)
 			}
 
@@ -130,7 +154,7 @@ func ProcessEvent(ctx context.Context, notificationList []*jokativ1alpha1.Notifi
 
 			parsedMessage, err := template.EvaluateTemplate(notification.Spec.Message.Data, object)
 			if err != nil {
-
+				// TODO: Update the status of the notification manifest
 			}
 
 			// TODO send message

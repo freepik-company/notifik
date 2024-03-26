@@ -15,18 +15,22 @@ spec:
 
   # Resource to be watched
   watch:
-    group: tekton.dev
+    group: ""
     version: v1
-    resource: pipelineruns
+    resource: configmaps
+
+    #group: tekton.dev
+    #version: v1
+    #resource: pipelineruns
 
   conditions:
-    - name: pepito
+    - name: check-configmap-name
       # The 'key' field admits vitamin Golang templating (well known from Helm)
       # The result of this field will be compared with 'value' for equality
       key: |
-        {{- $source := (index . 0) -}}
-        {{ printf "%s" $source.metadata.name }}
-      value: notification-sample
+        {{- $source := . -}}
+        {{- printf "%s" $source.metadata.name -}}
+      value: testing
 
   message:
     reason: "PipelineRunTimeout"

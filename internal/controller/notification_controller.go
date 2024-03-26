@@ -18,7 +18,9 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
@@ -65,9 +67,10 @@ type NotificationReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.0/pkg/reconcile
 func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
+	_ = logger
 
-	//1. Get the content of the notification
+	// 1. Get the content of the notification
 	notificationManifest := &jokativ1alpha1.Notification{}
 	err = r.Get(ctx, req.NamespacedName, notificationManifest)
 
@@ -76,23 +79,30 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 		// 2.1 It does NOT exist: manage removal
 		if err = client.IgnoreNotFound(err); err == nil {
-			LogInfof(ctx, notificationNotFoundError)
+			logger.Info(notificationNotFoundError)
 			return result, err
 		}
 
 		// 2.2 Failed to get the resource, requeue the request
-		LogInfof(ctx, notificationRetrievalError)
+		logger.Info(notificationRetrievalError)
 		return result, err
 	}
 
 	// 3. Check if the notification instance is marked to be deleted: indicated by the deletion timestamp being set
 	if !notificationManifest.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(notificationManifest, notificationFinalizer) {
+			// Delete Notification from WatcherPool
+			err = r.ReconcileNotification(ctx, watch.Deleted, notificationManifest)
+			if err != nil {
+				logger.Info(fmt.Sprintf(notificationReconcileError, notificationManifest.Name))
+				return result, err
+			}
+
 			// Remove the finalizers on notification CR
 			controllerutil.RemoveFinalizer(notificationManifest, notificationFinalizer)
 			err = r.Update(ctx, notificationManifest)
 			if err != nil {
-				LogInfof(ctx, notificationFinalizersUpdateError, req.Name)
+				logger.Info(fmt.Sprintf(notificationFinalizersUpdateError, req.Name))
 			}
 		}
 		result = ctrl.Result{}
@@ -113,24 +123,24 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	defer func() {
 		err = r.Status().Update(ctx, notificationManifest)
 		if err != nil {
-			LogInfof(ctx, notificationConditionUpdateError, req.Name)
+			logger.Info(fmt.Sprintf(notificationConditionUpdateError, req.Name))
 		}
 	}()
 
 	// 6. Schedule periodical request
 	RequeueTime, err := r.GetSynchronizationTime(notificationManifest)
 	if err != nil {
-		LogInfof(ctx, notificationSyncTimeRetrievalError, notificationManifest.Name)
+		logger.Info(fmt.Sprintf(notificationSyncTimeRetrievalError, notificationManifest.Name))
 		return result, err
 	}
 	result = ctrl.Result{
 		RequeueAfter: RequeueTime,
 	}
 
-	// 7. The Notification CR already exist: manage the update
-	err = r.ReconcileNotification(ctx, notificationManifest)
+	// 7. The Notification CR already exists: manage the update
+	err = r.ReconcileNotification(ctx, watch.Modified, notificationManifest)
 	if err != nil {
-		LogInfof(ctx, notificationReconcileError, notificationManifest.Name)
+		logger.Info(fmt.Sprintf(notificationReconcileError, notificationManifest.Name))
 		return result, err
 	}
 
@@ -141,7 +151,7 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		ConditionReasonResourceWatchedMessage,
 	))
 
-	LogInfof(ctx, scheduleSynchronization, result.RequeueAfter.String())
+	logger.Info(fmt.Sprintf(scheduleSynchronization, result.RequeueAfter.String()))
 	return result, err
 }
 

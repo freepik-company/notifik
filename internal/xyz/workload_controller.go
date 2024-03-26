@@ -19,17 +19,25 @@ package xyz
 import (
 	"context"
 	"fmt"
-	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
-	"freepik.com/jokati/internal/globals"
-	"freepik.com/jokati/internal/template"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/watch"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
+
+	//
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	//
+	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
+	"freepik.com/jokati/internal/globals"
+	"freepik.com/jokati/internal/integrations/alertmanager"
+	"freepik.com/jokati/internal/integrations/webhook"
+	"freepik.com/jokati/internal/template"
 )
 
 const (
@@ -60,7 +68,6 @@ func (r *WorkloadController) Start(ctx context.Context) {
 			return
 		default:
 			r.ReconcileWatchers(ctx)
-			// TODO: Do we need to wait?
 		}
 	}
 }
@@ -71,7 +78,7 @@ func (r *WorkloadController) ReconcileWatchers(ctx context.Context) {
 	for resourceType, resourceTypeWatcher := range globals.Application.WatcherPool {
 
 		if !*resourceTypeWatcher.Started {
-			go r.WatchType(ctx, resourceType)
+			go r.watchType(ctx, resourceType)
 
 			// TODO: Explotó, y yo exploté de él
 			time.Sleep(secondsBetweenWatchingRetries)
@@ -83,7 +90,7 @@ func (r *WorkloadController) ReconcileWatchers(ctx context.Context) {
 }
 
 // WatchType TODO
-func (r *WorkloadController) WatchType(ctx context.Context, watchedType globals.ResourceTypeName) {
+func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.ResourceTypeName) {
 
 	logger := log.FromContext(ctx)
 
@@ -127,7 +134,7 @@ func (r *WorkloadController) WatchType(ctx context.Context, watchedType globals.
 		}
 
 		// Process event for watched object apart
-		err = ProcessEvent(ctx, notificationList, objectMap, WatchEvent.Type)
+		err = processEvent(ctx, notificationList, objectMap, WatchEvent.Type)
 		if err != nil {
 			logger.Error(err, fmt.Sprintf(watchedObjectParseError, err))
 			continue
@@ -135,7 +142,7 @@ func (r *WorkloadController) WatchType(ctx context.Context, watchedType globals.
 	}
 }
 
-func ProcessEvent(ctx context.Context, notificationList *[]*jokativ1alpha1.Notification, object map[string]interface{}, eventType watch.EventType) (err error) {
+func processEvent(ctx context.Context, notificationList *[]*jokativ1alpha1.Notification, object map[string]interface{}, eventType watch.EventType) (err error) {
 	logger := log.FromContext(ctx)
 
 	if eventType == watch.Added || eventType == watch.Modified || eventType == watch.Deleted {
@@ -144,6 +151,9 @@ func ProcessEvent(ctx context.Context, notificationList *[]*jokativ1alpha1.Notif
 			for _, condition := range notification.Spec.Conditions {
 				parsedKey, err := template.EvaluateTemplate(condition.Key, object)
 				if err != nil {
+					// TODO: Update the status of the notification manifest
+					conditionFlags = append(conditionFlags, false)
+					continue
 				}
 				conditionFlags = append(conditionFlags, parsedKey == condition.Value)
 			}
@@ -155,12 +165,37 @@ func ProcessEvent(ctx context.Context, notificationList *[]*jokativ1alpha1.Notif
 			parsedMessage, err := template.EvaluateTemplate(notification.Spec.Message.Data, object)
 			if err != nil {
 				// TODO: Update the status of the notification manifest
+				continue
 			}
 
 			// TODO send message
-			logger.Info(fmt.Sprintf("Tengo una carta para ti: %s", parsedMessage))
-
+			err = runIntegrations(ctx, notification.Spec.Message.Reason, parsedMessage)
+			if err != nil {
+				logger.Error(err, "Send message failed") // TODO
+			}
 		}
 	}
 	return err
+}
+
+// runIntegrations TODO
+func runIntegrations(ctx context.Context, reason string, msg string) (err error) {
+
+	// Send the message to Alertmanager
+	if !reflect.ValueOf(globals.Application.Configuration.Integrations.Alertmanager).IsZero() {
+		err = alertmanager.SendMessage(ctx, reason, msg)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Send the message to a webhook
+	if !reflect.ValueOf(globals.Application.Configuration.Integrations.Webhook).IsZero() {
+		err = webhook.SendMessage(ctx, reason, msg)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

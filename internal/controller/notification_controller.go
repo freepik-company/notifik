@@ -21,7 +21,6 @@ import (
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 
@@ -51,16 +50,12 @@ const (
 type NotificationReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-
-	// Extra: Added to be able to raise events
-	Recorder record.EventRecorder
 }
 
 //+kubebuilder:rbac:groups=jokati.freepik.com,resources=notifications,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=jokati.freepik.com,resources=notifications/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=jokati.freepik.com,resources=notifications/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=secrets;configmaps,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

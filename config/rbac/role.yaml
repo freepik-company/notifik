@@ -18,13 +18,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - events
-  verbs:
-  - create
-  - patch
-- apiGroups:
   - jokati.freepik.com
   resources:
   - notifications

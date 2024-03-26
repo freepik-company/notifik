@@ -1,0 +1,12 @@
+# TODO explain env substitution
+integrations:
+
+  # Configuration parameters to be able to connect with RabbitMQ
+  alertmanager:
+    url: "https://mimir-gateway.tools.fpkmon.com"
+    headers:
+      X-Scope-OrgID: freepik-company
+
+#  webhook:
+#    url: "https://${TEST_USERNAME}:${TEST_PASSWORD}@test.com"
+#    headers: {}

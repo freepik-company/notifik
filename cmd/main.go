@@ -19,8 +19,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"freepik.com/jokati/internal/globals"
-	"freepik.com/jokati/internal/xyz"
+	"gopkg.in/yaml.v2"
 	"os"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -35,8 +34,11 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	//
 	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
 	"freepik.com/jokati/internal/controller"
+	"freepik.com/jokati/internal/globals"
+	"freepik.com/jokati/internal/xyz"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -58,6 +60,8 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var configPath string
+	flag.StringVar(&configPath, "config", "jokati.yaml", "The path to configuration file.")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -74,6 +78,21 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	// Parse the config TODO
+	configBytes, err := os.ReadFile(configPath)
+	if err != nil {
+		// TODO decidir
+		setupLog.Error(err, "unable to find configuration YAML")
+		os.Exit(1)
+	}
+
+	configString := os.ExpandEnv(string(configBytes))
+	err = yaml.Unmarshal([]byte(configString), &globals.Application.Configuration)
+	if err != nil {
+		setupLog.Error(err, "imposible to parse configuration YAML")
+		os.Exit(1)
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -124,9 +143,8 @@ func main() {
 	}
 
 	if err = (&controller.NotificationReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("notification-controller"), // TODO: DO WE WANT EVENTS ON THIS?
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Notification")
 		os.Exit(1)
@@ -155,8 +173,6 @@ func main() {
 	// TODO
 	workloadController := xyz.WorkloadController{
 		Client: mgr.GetClient(),
-		// Scheme:   mgr.GetScheme().,
-		// Recorder: mgr.GetEventRecorderFor("workload-controller"),
 	}
 
 	setupLog.Info("starting workload controller")

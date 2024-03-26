@@ -35,4 +35,5 @@ spec:
   message:
     reason: "PipelineRunTimeout"
     data: |
-      {{- $source := (index . 0) -}}
+      {{- $source := . -}}
+      {{- printf "Hi, I'm on fire: %s/%s" $source.metadata.namespace $source.metadata.name -}}

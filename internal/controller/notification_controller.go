@@ -125,14 +125,14 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}()
 
 	// 6. Schedule periodical request
-	RequeueTime, err := r.GetSynchronizationTime(notificationManifest)
-	if err != nil {
-		logger.Info(fmt.Sprintf(notificationSyncTimeRetrievalError, notificationManifest.Name))
-		return result, err
-	}
-	result = ctrl.Result{
-		RequeueAfter: RequeueTime,
-	}
+	//RequeueTime, err := r.GetSynchronizationTime(notificationManifest)
+	//if err != nil {
+	//	logger.Info(fmt.Sprintf(notificationSyncTimeRetrievalError, notificationManifest.Name))
+	//	return result, err
+	//}
+	//result = ctrl.Result{
+	//	RequeueAfter: RequeueTime,
+	//}
 
 	// 7. The Notification CR already exists: manage the update
 	err = r.ReconcileNotification(ctx, watch.Modified, notificationManifest)
@@ -148,7 +148,7 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		ConditionReasonResourceWatchedMessage,
 	))
 
-	logger.Info(fmt.Sprintf(scheduleSynchronization, result.RequeueAfter.String()))
+	//logger.Info(fmt.Sprintf(scheduleSynchronization, result.RequeueAfter.String()))
 	return result, err
 }
 

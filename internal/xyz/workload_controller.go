@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"freepik.com/jokati/internal/integrations"
-	corelog "log"
 	"slices"
 	"strings"
 	"time"
@@ -88,8 +87,6 @@ func (r *WorkloadController) ReconcileWatchers(ctx context.Context) {
 	for resourceType, resourceTypeWatcher := range globals.Application.WatcherPool {
 
 		if !*resourceTypeWatcher.Started {
-
-			corelog.Print("####################### HAY UN ROLLO PARADO!!! :O ARRANCAO")
 			go r.watchType(ctx, resourceType)
 
 			// Wait for the resourceType watcher to ACK itself into WatcherPool

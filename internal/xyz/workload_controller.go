@@ -19,7 +19,8 @@ package xyz
 import (
 	"context"
 	"fmt"
-	"reflect"
+	"freepik.com/jokati/internal/integrations"
+	corelog "log"
 	"slices"
 	"strings"
 	"time"
@@ -35,21 +36,27 @@ import (
 	//
 	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
 	"freepik.com/jokati/internal/globals"
-	"freepik.com/jokati/internal/integrations/alertmanager"
-	"freepik.com/jokati/internal/integrations/webhook"
 	"freepik.com/jokati/internal/template"
 )
 
 const (
+	// Default values
 	secondsBetweenWatchingRetries = 10 * time.Second
+	processedEventsPerSecond      = 2
 
+	//
 	controllerContextFinishedMessage = "xyz.WorkloadController finished by context"
 	controllerWatcherStartedMessage  = "Watcher for '%s' has been started"
 
-	kubeWatcherStartFailedError   = "Impossible to watch resource type '%s'. RBAC issues?: %s"
-	watchedObjectParseError       = "Impossible to process watched object: %s"
-	runtimeObjectConversionError  = "Failed to parse object: %v"
-	resourceWatcherLaunchingError = "Impossible to start watcher for resource type: %s"
+	kubeWatcherStartFailedError    = "Impossible to watch resource type '%s'. RBAC issues?: %s"
+	watchedObjectParseError        = "Impossible to process watched object: %s"
+	runtimeObjectConversionError   = "Failed to parse object: %v"
+	resourceWatcherLaunchingError  = "Impossible to start watcher for resource type: %s"
+	integrationsSendMessageError   = "Impossible to send the message to some integration: %s"
+	resourceWatcherGvrParsingError = "Failed to parse GVR from resourceType. Does it look like {group}/{version}/{resource}?"
+
+	eventConditionGoTemplateError = "Go templating reported failure for object conditions: %s"
+	eventMessageGoTemplateError   = "Go templating reported failure for object message: %s"
 )
 
 // WorkloadController TODO
@@ -57,7 +64,8 @@ type WorkloadController struct {
 	Client client.Client
 }
 
-// TODO
+// Start launches the XYZ.WorkloadController and keeps it alive
+// It kills the controller on application context death, and rerun the process when failed
 func (r *WorkloadController) Start(ctx context.Context) {
 	logger := log.FromContext(ctx)
 
@@ -72,15 +80,20 @@ func (r *WorkloadController) Start(ctx context.Context) {
 	}
 }
 
+// ReconcileWatchers launches a parallel process that launches
+// watchers for resource types defined into the WatcherPool
 func (r *WorkloadController) ReconcileWatchers(ctx context.Context) {
 	logger := log.FromContext(ctx)
 
 	for resourceType, resourceTypeWatcher := range globals.Application.WatcherPool {
 
 		if !*resourceTypeWatcher.Started {
+
+			corelog.Print("####################### HAY UN ROLLO PARADO!!! :O ARRANCAO")
 			go r.watchType(ctx, resourceType)
 
-			// TODO: Explotó, y yo exploté de él
+			// Wait for the resourceType watcher to ACK itself into WatcherPool
+			// TODO: Improve this logic in future version
 			time.Sleep(secondsBetweenWatchingRetries)
 			if *(globals.Application.WatcherPool[resourceType].Started) == false {
 				logger.Info(fmt.Sprintf(resourceWatcherLaunchingError, resourceType))
@@ -89,14 +102,13 @@ func (r *WorkloadController) ReconcileWatchers(ctx context.Context) {
 	}
 }
 
-// WatchType TODO
+// WatchType launches a watcher for a certain resource type, and trigger processing for each entering resource event
 func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.ResourceTypeName) {
 
 	logger := log.FromContext(ctx)
 
 	logger.Info(fmt.Sprintf(controllerWatcherStartedMessage, watchedType))
 
-	// TODO: METER A FALSE EL FLAG DE RUNNING DE ESTA GOROUTINE
 	// Set ACK flag for watcher launching into the WatcherPool
 	*(globals.Application.WatcherPool[watchedType].Started) = true
 	defer func() {
@@ -109,7 +121,8 @@ func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.
 	// {group}/{version}/{resource}
 	GVR := strings.Split(string(watchedType), "/")
 	if len(GVR) != 3 {
-		// TODO breaking the law
+		logger.Info(resourceWatcherGvrParsingError)
+		return
 	}
 	resourceGVR := schema.GroupVersionResource{
 		Group:    GVR[0],
@@ -125,6 +138,18 @@ func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.
 	}
 	defer resourceWatcher.Stop()
 
+	// Listen to stop signal to kill this watcher just in case it's needed
+	go func(p watch.Interface) {
+		<-*(globals.Application.WatcherPool[watchedType].StopSignal)
+		p.Stop()
+		logger.Info(fmt.Sprintf("Watcher for resource type '%s' killed by StopSignal", watchedType))
+	}(resourceWatcher)
+
+	// Calculate waiting time between loops to process N items per second
+	// Done this way to allow limitation of consumed resources
+	waitDuration := time.Second / time.Duration(processedEventsPerSecond)
+
+	//
 	for WatchEvent := range resourceWatcher.ResultChan() {
 		// Extract the unstructured object from the event
 		objectMap, err := GetObjectMapFromRuntimeObject(&WatchEvent.Object)
@@ -134,68 +159,69 @@ func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.
 		}
 
 		// Process event for watched object apart
-		err = processEvent(ctx, notificationList, objectMap, WatchEvent.Type)
+		// TODO: Probably we need to trigger processing into goroutines not to affect waiting calculation
+		err = r.processEvent(ctx, notificationList, objectMap, WatchEvent.Type)
 		if err != nil {
 			logger.Error(err, fmt.Sprintf(watchedObjectParseError, err))
 			continue
 		}
+
+		//
+		time.Sleep(waitDuration)
 	}
 }
 
-func processEvent(ctx context.Context, notificationList *[]*jokativ1alpha1.Notification, object map[string]interface{}, eventType watch.EventType) (err error) {
+// processEvent process an event coming from a watched resource type.
+// It computes templating, evaluates conditions and decides whether to send a message for a given manifest
+func (r *WorkloadController) processEvent(ctx context.Context, notificationList *[]*jokativ1alpha1.Notification, object map[string]interface{}, eventType watch.EventType) (err error) {
 	logger := log.FromContext(ctx)
 
-	if eventType == watch.Added || eventType == watch.Modified || eventType == watch.Deleted {
-		for _, notification := range *notificationList {
-			var conditionFlags []bool
-			for _, condition := range notification.Spec.Conditions {
-				parsedKey, err := template.EvaluateTemplate(condition.Key, object)
-				if err != nil {
-					// TODO: Update the status of the notification manifest
-					conditionFlags = append(conditionFlags, false)
-					continue
-				}
-				conditionFlags = append(conditionFlags, parsedKey == condition.Value)
-			}
+	// Process only certain event types
+	if eventType != watch.Added && eventType != watch.Modified && eventType != watch.Deleted {
+		return nil
+	}
 
-			if slices.Contains(conditionFlags, false) {
+	// Get object name and namespace for logging ease
+	objectBasicData, err := GetObjectBasicData(&object)
+	if err != nil {
+		return err
+	}
+
+	for _, notification := range *notificationList {
+
+		var conditionFlags []bool
+		for _, condition := range notification.Spec.Conditions {
+			parsedKey, err := template.EvaluateTemplate(condition.Key, object)
+			if err != nil {
+				logger.WithValues(
+					"notification", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
+					"object", fmt.Sprintf("%s/%s", objectBasicData["namespace"], objectBasicData["name"]),
+					"error", err).Info(eventConditionGoTemplateError)
+				conditionFlags = append(conditionFlags, false)
 				continue
 			}
+			conditionFlags = append(conditionFlags, parsedKey == condition.Value)
+		}
 
-			parsedMessage, err := template.EvaluateTemplate(notification.Spec.Message.Data, object)
-			if err != nil {
-				// TODO: Update the status of the notification manifest
-				continue
-			}
+		if slices.Contains(conditionFlags, false) {
+			continue
+		}
 
-			// TODO send message
-			err = runIntegrations(ctx, notification.Spec.Message.Reason, parsedMessage)
-			if err != nil {
-				logger.Error(err, "Send message failed") // TODO
-			}
+		parsedMessage, err := template.EvaluateTemplate(notification.Spec.Message.Data, object)
+		if err != nil {
+			logger.WithValues(
+				"notification", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
+				"object", fmt.Sprintf("%s/%s", objectBasicData["namespace"], objectBasicData["name"]),
+				"error", err).Info(eventMessageGoTemplateError)
+			continue
+		}
+
+		// Send the message through integrations
+		err = integrations.SendMessage(ctx, notification.Spec.Message.Reason, parsedMessage)
+		if err != nil {
+			logger.Info(fmt.Sprintf(integrationsSendMessageError, err))
 		}
 	}
+
 	return err
-}
-
-// runIntegrations TODO
-func runIntegrations(ctx context.Context, reason string, msg string) (err error) {
-
-	// Send the message to Alertmanager
-	if !reflect.ValueOf(globals.Application.Configuration.Integrations.Alertmanager).IsZero() {
-		err = alertmanager.SendMessage(ctx, reason, msg)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Send the message to a webhook
-	if !reflect.ValueOf(globals.Application.Configuration.Integrations.Webhook).IsZero() {
-		err = webhook.SendMessage(ctx, reason, msg)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

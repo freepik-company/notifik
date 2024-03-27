@@ -36,6 +36,9 @@ type applicationT struct {
 
 // TODO
 type ResourceTypeWatcherT struct {
-	Started          *bool
+	Started    *bool
+	StopSignal *chan bool
+
+	//
 	NotificationList *[]*jokativ1alpha1.Notification
 }

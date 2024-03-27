@@ -4,13 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"freepik.com/jokati/internal/globals"
-	"k8s.io/apimachinery/pkg/watch"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 	"time"
 
+	//
+	"k8s.io/apimachinery/pkg/watch"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	//
 	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
+	"freepik.com/jokati/internal/globals"
 )
 
 const (
@@ -77,6 +80,9 @@ func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, even
 		logger.Info(watcherPoolAddedNotificationMessage,
 			"watcher", watchedType)
 		*notificationList = append(*notificationList, notificationManifest)
+
+		// TODO: Decide if resourceType watcher restart is suitable on Notification creation events
+		//*(globals.Application.WatcherPool[watchedType].StopSignal) <- true
 		return nil
 	}
 
@@ -85,6 +91,9 @@ func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, even
 	//logger.Info(watcherPoolUpdatedNotificationMessage,
 	//	"watcher", watchedType)
 	(*notificationList)[notificationIndex] = notificationManifest
+
+	// TODO: Decide if resourceType watcher restart is suitable on Notification update events
+	//*(globals.Application.WatcherPool[watchedType].StopSignal) <- true
 	return nil
 
 }

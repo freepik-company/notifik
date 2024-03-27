@@ -47,12 +47,14 @@ func SplitCommaSeparatedValues(input []string) []string {
 // TODO
 func InitWatcher(watcherType ResourceTypeName) {
 
-	//initialStartedState := false // TODO: Decide
 	var initialStartedState bool = false
 	var initialNotificationListState []*jokativ1alpha1.Notification
 
+	initialStopSignalState := make(chan bool)
+
 	Application.WatcherPool[watcherType] = ResourceTypeWatcherT{
 		Started:          &initialStartedState,
+		StopSignal:       &initialStopSignalState,
 		NotificationList: &initialNotificationListState,
 	}
 }

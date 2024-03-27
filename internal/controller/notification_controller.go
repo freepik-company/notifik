@@ -19,16 +19,18 @@ package controller
 import (
 	"context"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 
+	//
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	//
 	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
 )
 
@@ -140,7 +142,7 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// 8. Success, update the status
-	r.UpdateNotificationCondition(notificationManifest, r.NewNotificationCondition(ConditionTypeResourceWatched,
+	UpdateNotificationCondition(notificationManifest, NewNotificationCondition(ConditionTypeResourceWatched,
 		metav1.ConditionTrue,
 		ConditionReasonResourceWatched,
 		ConditionReasonResourceWatchedMessage,

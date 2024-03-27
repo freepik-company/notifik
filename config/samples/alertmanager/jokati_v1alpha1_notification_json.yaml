@@ -3,11 +3,11 @@ kind: Notification
 metadata:
   labels:
     app.kubernetes.io/name: notification
-    app.kubernetes.io/instance: notification-sample
+    app.kubernetes.io/instance: notification-sample-alertmanager-json
     app.kubernetes.io/part-of: jokati
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: jokati
-  name: notification-sample
+  name: notification-sample-alertmanager-json
 spec:
   # Synchronization parameters
   synchronization:
@@ -18,10 +18,6 @@ spec:
     group: ""
     version: v1
     resource: configmaps
-
-    #group: tekton.dev
-    #version: v1
-    #resource: pipelineruns
 
   conditions:
     - name: check-configmap-name
@@ -36,4 +32,19 @@ spec:
     reason: "PipelineRunTimeout"
     data: |
       {{- $source := . -}}
-      {{- printf "Hi, I'm on fire: %s/%s" $source.metadata.namespace $source.metadata.name -}}
+      {{- $now := (now | date "2006-01-02T15:04:05Z07:00") -}}
+      {{- $alertStructure := (printf `
+        {
+            "startsAt": "%s",
+            "annotations": {
+              "additionalProp1": "string",
+              "additionalProp2": "string",
+              "additionalProp3": "string"
+            },
+            "labels": {
+              "namespace": "%s",
+              "name": "%s",
+            },
+            "generatorURL": "string"
+        }` $now $source.metadata.namespace $source.metadata.name) -}}
+      {{- toJson $alertStructure -}}

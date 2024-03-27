@@ -1,0 +1,39 @@
+apiVersion: jokati.freepik.com/v1alpha1
+kind: Notification
+metadata:
+  labels:
+    app.kubernetes.io/name: notification
+    app.kubernetes.io/instance: notification-sample-simple
+    app.kubernetes.io/part-of: jokati
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: jokati
+  name: notification-sample-simple
+spec:
+  # Synchronization parameters
+  synchronization:
+    time: "10s"
+
+  # Resource to be watched
+  watch:
+    group: ""
+    version: v1
+    resource: configmaps
+
+    #group: tekton.dev
+    #version: v1
+    #resource: pipelineruns
+
+  conditions:
+    - name: check-configmap-name
+      # The 'key' field admits vitamin Golang templating (well known from Helm)
+      # The result of this field will be compared with 'value' for equality
+      key: |
+        {{- $source := . -}}
+        {{- printf "%s" $source.metadata.name -}}
+      value: testing
+
+  message:
+    reason: "PipelineRunTimeout"
+    data: |
+      {{- $source := . -}}
+      {{- printf "Hi, I'm on fire: %s/%s" $source.metadata.namespace $source.metadata.name -}}

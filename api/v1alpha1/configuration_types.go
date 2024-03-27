@@ -19,6 +19,6 @@ type AlertmanagerT struct {
 
 // WebhookT TODO
 type WebhookT struct {
-	URL     string            `yaml:"url"`
+	Url     string            `yaml:"url"`
 	Headers map[string]string `yaml:"headers,omitempty"`
 }

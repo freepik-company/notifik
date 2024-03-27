@@ -1,8 +1,10 @@
 package controller
 
 import (
-	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	//
+	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
 )
 
 const (
@@ -34,10 +36,6 @@ const (
 	ConditionReasonConditionsTemplateParsingFailed        = "ConditionsTemplateParsingFailed"
 	ConditionReasonConditionsTemplateParsingFailedMessage = "Golang returned: %s"
 
-	// Conditions template execution failed
-	ConditionReasonConditionsTemplateExecutionFailed        = "ConditionsTemplateExecutionFailed"
-	ConditionReasonConditionsTemplateExecutionFailedMessage = "Golang returned: %s"
-
 	// Success
 	ConditionReasonConditionsTemplateParsed        = "ConditionsTemplateParsed"
 	ConditionReasonConditionsTemplateParsedMessage = "Conditions template was successfully parsed"
@@ -51,17 +49,13 @@ const (
 	ConditionReasonMessageTemplateParsingFailed        = "MessageTemplateParsingFailed"
 	ConditionReasonMessageTemplateParsingFailedMessage = "Golang returned: %s"
 
-	// Message template execution failed
-	ConditionReasonMessageTemplateExecutionFailed        = "MessageTemplateExecutionFailed"
-	ConditionReasonMessageTemplateExecutionFailedMessage = "Golang returned: %s"
-
 	// Success
 	ConditionReasonMessageTemplateParsed        = "MessageTemplateParsed"
 	ConditionReasonMessageTemplateParsedMessage = "Message template was successfully parsed"
 )
 
 // NewNotificationCondition a set of default options for creating a Condition.
-func (r *NotificationReconciler) NewNotificationCondition(condType string, status metav1.ConditionStatus, reason, message string) *metav1.Condition {
+func NewNotificationCondition(condType string, status metav1.ConditionStatus, reason, message string) *metav1.Condition {
 	return &metav1.Condition{
 		Type:               condType,
 		Status:             status,
@@ -72,7 +66,7 @@ func (r *NotificationReconciler) NewNotificationCondition(condType string, statu
 }
 
 // GetNotificationCondition returns the condition with the provided type.
-func (r *NotificationReconciler) GetNotificationCondition(patch *jokativ1alpha1.Notification, condType string) *metav1.Condition {
+func GetNotificationCondition(patch *jokativ1alpha1.Notification, condType string) *metav1.Condition {
 
 	for i, v := range patch.Status.Conditions {
 		if v.Type == condType {
@@ -83,10 +77,10 @@ func (r *NotificationReconciler) GetNotificationCondition(patch *jokativ1alpha1.
 }
 
 // UpdateNotificationCondition update or create a new condition inside the status of the CR
-func (r *NotificationReconciler) UpdateNotificationCondition(patch *jokativ1alpha1.Notification, condition *metav1.Condition) {
+func UpdateNotificationCondition(patch *jokativ1alpha1.Notification, condition *metav1.Condition) {
 
 	// Get the condition
-	currentCondition := r.GetNotificationCondition(patch, condition.Type)
+	currentCondition := GetNotificationCondition(patch, condition.Type)
 
 	if currentCondition == nil {
 		// Create the condition when not existent

@@ -7,7 +7,7 @@ resources:
 
 
 #- jokati_v1alpha1_notification.yaml
-- alertmanager/jokati_v1alpha1_notification_yaml.yaml
+- notification/alertmanager/jokati_v1alpha1_notification_yaml.yaml
 
 
 #+kubebuilder:scaffold:manifestskustomizesamples

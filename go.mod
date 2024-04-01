@@ -5,7 +5,6 @@ go 1.21
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/Masterminds/sprig v2.22.0+incompatible
-	github.com/a8m/envsubst v1.4.2
 	github.com/onsi/ginkgo/v2 v2.14.0
 	github.com/onsi/gomega v1.30.0
 	gopkg.in/yaml.v2 v2.4.0

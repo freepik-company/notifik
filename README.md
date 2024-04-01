@@ -1,4 +1,4 @@
-# Jokati
+# Notifik
 
 ![GitHub go.mod Go version (subdirectory of monorepo)](https://img.shields.io/github/go-mod/go-version/freepik-company/tekton-exporter)
 ![GitHub](https://img.shields.io/github/license/freepik-company/tekton-exporter)
@@ -45,7 +45,7 @@ They are described in the following table:
 
 | Name                          | Description                                                        | Default Example |                                       |
 |:------------------------------|:-------------------------------------------------------------------|:---------------:|---------------------------------------|
-| `--config`                    | The path to configuration file                                     |  `jokati.yaml`  | `--config "./jokati.yaml"`            |
+| `--config`                    | The path to configuration file                                     |  `notifik.yaml`  | `--config "./notifik.yaml"`            |
 | `--kubeconfig`                | Path to kubeconfig                                                 |       `-`       | `--kubeconfig="~/.kube/config"`       |   
 | `--enable-http2`              | If set, HTTP/2 will be enabled for the metrics and webhook servers |     `false`     | `--enable-http2 true`                 |
 | `--metrics-secure`            | If set the metrics endpoint is served securely                     |     `false`     | `--metrics-secure true`               |
@@ -87,11 +87,11 @@ But you can watch other kinds of resources just granting some permissions to the
 ServiceAccount of the controller as follows:
 
 ```yaml
-# clusterRole-jokati-custom-resources.yaml
+# clusterRole-notifik-custom-resources.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: jokati-custom-resources
+  name: notifik-custom-resources
 rules:
   - apiGroups:
       - "*"
@@ -106,32 +106,32 @@ rules:
       - update
       - watch
 ---
-# clusterRoleBinding-jokati-custom-resources.yaml
+# clusterRoleBinding-notifik-custom-resources.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: jokati-custom-resources
+  name: notifik-custom-resources
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: jokati-custom-resources
+  name: notifik-custom-resources
 subjects:
   - kind: ServiceAccount
-    name: jokati-controller-manager
+    name: notifik-controller-manager
     namespace: default
 ---
 # kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: jokati
+namespace: notifik
 
 resources:
-  - https://github.com/freepik-company/jokati//deploy/?ref=main
+  - https://github.com/freepik-company/notifik//deploy/?ref=main
 
   # Add your custom resources
-  - clusterRole-jokati-custom-resources.yaml
-  - clusterRoleBinding-jokati-custom-resources.yaml
+  - clusterRole-notifik-custom-resources.yaml
+  - clusterRoleBinding-notifik-custom-resources.yaml
 ```
 
 ## Example
@@ -154,7 +154,7 @@ Now use a Notification CR to watch ConfigMap looking for changes. When the condi
 send the notification to a webhook:
 
 ```yaml
-apiVersion: jokati.freepik.com/v1alpha1
+apiVersion: notifik.freepik.com/v1alpha1
 kind: Notification
 metadata:
   name: notification-sample-simple
@@ -206,7 +206,7 @@ This means the manifest (as Go object) is available in the main scope `.`. You c
 
 This means that the objects can be accessed or stored in variables in the following way:
 ```yaml
-apiVersion: jokati.freepik.com/v1alpha1
+apiVersion: notifik.freepik.com/v1alpha1
 kind: Notification
 metadata:
   name: notification-sample-simple
@@ -257,7 +257,7 @@ If you desire to run against your cluster using a custom configuration, run the 
 from the root directory of this project:
 
 ```console
- go run ./cmd/main.go --config ./your-path-to-jokati/config/samples/config/jokati.yaml
+ go run ./cmd/main.go --config ./your-path-to-notifik/config/samples/config/notifik.yaml
 ```
 
 ## How releases are created
@@ -280,7 +280,7 @@ For a better understanding of the process, the steps are described in the follow
 
     ```console
     export VERSION="0.0.1"
-    export IMG="freepik-company/jokati:v$VERSION"
+    export IMG="freepik-company/notifik:v$VERSION"
     ```
 
 3. Generate and push the Docker image (published on Docker Hub).
@@ -307,7 +307,7 @@ For a better understanding of the process, the steps are described in the follow
    The operator can be installed just running kubectl apply -f <URL for YAML BUNDLE> to install the project, i.e.:
 
    ```sh
-   kubectl apply -f https://raw.githubusercontent.com/freepik-company/jokati/<tag or branch>/dist/install.yaml
+   kubectl apply -f https://raw.githubusercontent.com/freepik-company/notifik/<tag or branch>/dist/install.yaml
    ```
 
 2. Using Helm

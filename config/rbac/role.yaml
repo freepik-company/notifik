@@ -18,7 +18,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - jokati.freepik.com
+  - notifik.freepik.com
   resources:
   - notifications
   verbs:
@@ -30,13 +30,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - jokati.freepik.com
+  - notifik.freepik.com
   resources:
   - notifications/finalizers
   verbs:
   - update
 - apiGroups:
-  - jokati.freepik.com
+  - notifik.freepik.com
   resources:
   - notifications/status
   verbs:

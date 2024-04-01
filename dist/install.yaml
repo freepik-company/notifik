@@ -3,9 +3,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
-  name: notifications.jokati.freepik.com
+  name: notifications.notifik.freepik.com
 spec:
-  group: jokati.freepik.com
+  group: notifik.freepik.com
   names:
     categories:
     - notifications
@@ -191,22 +191,22 @@ kind: Namespace
 metadata:
   labels:
     app.kubernetes.io/component: manager
-    app.kubernetes.io/created-by: jokati
+    app.kubernetes.io/created-by: notifik
     app.kubernetes.io/instance: system
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: namespace
-    app.kubernetes.io/part-of: jokati
+    app.kubernetes.io/part-of: notifik
     control-plane: controller-manager
-  name: jokati
+  name: notifik
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
-  name: notifications.jokati.freepik.com
+  name: notifications.notifik.freepik.com
 spec:
-  group: jokati.freepik.com
+  group: notifik.freepik.com
   names:
     categories:
     - notifications
@@ -392,26 +392,26 @@ kind: ServiceAccount
 metadata:
   labels:
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: jokati
+    app.kubernetes.io/created-by: notifik
     app.kubernetes.io/instance: controller-manager-sa
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: serviceaccount
-    app.kubernetes.io/part-of: jokati
-  name: jokati-controller-manager
-  namespace: jokati
+    app.kubernetes.io/part-of: notifik
+  name: notifik-controller-manager
+  namespace: notifik
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   labels:
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: jokati
+    app.kubernetes.io/created-by: notifik
     app.kubernetes.io/instance: leader-election-role
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: role
-    app.kubernetes.io/part-of: jokati
-  name: jokati-leader-election-role
-  namespace: jokati
+    app.kubernetes.io/part-of: notifik
+  name: notifik-leader-election-role
+  namespace: notifik
 rules:
 - apiGroups:
   - ""
@@ -448,7 +448,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: jokati-manager-role
+  name: notifik-manager-role
 rules:
 - apiGroups:
   - ""
@@ -464,7 +464,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - jokati.freepik.com
+  - notifik.freepik.com
   resources:
   - notifications
   verbs:
@@ -476,13 +476,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - jokati.freepik.com
+  - notifik.freepik.com
   resources:
   - notifications/finalizers
   verbs:
   - update
 - apiGroups:
-  - jokati.freepik.com
+  - notifik.freepik.com
   resources:
   - notifications/status
   verbs:
@@ -495,12 +495,12 @@ kind: ClusterRole
 metadata:
   labels:
     app.kubernetes.io/component: kube-rbac-proxy
-    app.kubernetes.io/created-by: jokati
+    app.kubernetes.io/created-by: notifik
     app.kubernetes.io/instance: metrics-reader
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: clusterrole
-    app.kubernetes.io/part-of: jokati
-  name: jokati-metrics-reader
+    app.kubernetes.io/part-of: notifik
+  name: notifik-metrics-reader
 rules:
 - nonResourceURLs:
   - /metrics
@@ -512,12 +512,12 @@ kind: ClusterRole
 metadata:
   labels:
     app.kubernetes.io/component: kube-rbac-proxy
-    app.kubernetes.io/created-by: jokati
+    app.kubernetes.io/created-by: notifik
     app.kubernetes.io/instance: proxy-role
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: clusterrole
-    app.kubernetes.io/part-of: jokati
-  name: jokati-proxy-role
+    app.kubernetes.io/part-of: notifik
+  name: notifik-proxy-role
 rules:
 - apiGroups:
   - authentication.k8s.io
@@ -537,75 +537,75 @@ kind: RoleBinding
 metadata:
   labels:
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: jokati
+    app.kubernetes.io/created-by: notifik
     app.kubernetes.io/instance: leader-election-rolebinding
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: rolebinding
-    app.kubernetes.io/part-of: jokati
-  name: jokati-leader-election-rolebinding
-  namespace: jokati
+    app.kubernetes.io/part-of: notifik
+  name: notifik-leader-election-rolebinding
+  namespace: notifik
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: jokati-leader-election-role
+  name: notifik-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: jokati-controller-manager
-  namespace: jokati
+  name: notifik-controller-manager
+  namespace: notifik
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: jokati
+    app.kubernetes.io/created-by: notifik
     app.kubernetes.io/instance: manager-rolebinding
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: clusterrolebinding
-    app.kubernetes.io/part-of: jokati
-  name: jokati-manager-rolebinding
+    app.kubernetes.io/part-of: notifik
+  name: notifik-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: jokati-manager-role
+  name: notifik-manager-role
 subjects:
 - kind: ServiceAccount
-  name: jokati-controller-manager
-  namespace: jokati
+  name: notifik-controller-manager
+  namespace: notifik
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
     app.kubernetes.io/component: kube-rbac-proxy
-    app.kubernetes.io/created-by: jokati
+    app.kubernetes.io/created-by: notifik
     app.kubernetes.io/instance: proxy-rolebinding
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: clusterrolebinding
-    app.kubernetes.io/part-of: jokati
-  name: jokati-proxy-rolebinding
+    app.kubernetes.io/part-of: notifik
+  name: notifik-proxy-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: jokati-proxy-role
+  name: notifik-proxy-role
 subjects:
 - kind: ServiceAccount
-  name: jokati-controller-manager
-  namespace: jokati
+  name: notifik-controller-manager
+  namespace: notifik
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
     app.kubernetes.io/component: kube-rbac-proxy
-    app.kubernetes.io/created-by: jokati
+    app.kubernetes.io/created-by: notifik
     app.kubernetes.io/instance: controller-manager-metrics-service
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: service
-    app.kubernetes.io/part-of: jokati
+    app.kubernetes.io/part-of: notifik
     control-plane: controller-manager
-  name: jokati-controller-manager-metrics-service
-  namespace: jokati
+  name: notifik-controller-manager-metrics-service
+  namespace: notifik
 spec:
   ports:
   - name: https
@@ -620,14 +620,14 @@ kind: Deployment
 metadata:
   labels:
     app.kubernetes.io/component: manager
-    app.kubernetes.io/created-by: jokati
+    app.kubernetes.io/created-by: notifik
     app.kubernetes.io/instance: controller-manager
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: deployment
-    app.kubernetes.io/part-of: jokati
+    app.kubernetes.io/part-of: notifik
     control-plane: controller-manager
-  name: jokati-controller-manager
-  namespace: jokati
+  name: notifik-controller-manager
+  namespace: notifik
 spec:
   replicas: 1
   selector:
@@ -670,7 +670,7 @@ spec:
         - --leader-elect
         command:
         - /manager
-        image: ghcr.io/freepik-company/jokati:v0.1.0
+        image: ghcr.io/freepik-company/notifik:v0.1.0
         livenessProbe:
           httpGet:
             path: /healthz
@@ -698,5 +698,5 @@ spec:
             - ALL
       securityContext:
         runAsNonRoot: true
-      serviceAccountName: jokati-controller-manager
+      serviceAccountName: notifik-controller-manager
       terminationGracePeriodSeconds: 10

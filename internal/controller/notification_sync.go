@@ -12,8 +12,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	//
-	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
-	"freepik.com/jokati/internal/globals"
+	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
+	"freepik.com/notifik/internal/globals"
 )
 
 const (
@@ -28,7 +28,7 @@ const (
 )
 
 // GetSynchronizationTime return the spec.synchronization.time as duration, or default time on failures
-func (r *NotificationReconciler) GetSynchronizationTime(notificationManifest *jokativ1alpha1.Notification) (synchronizationTime time.Duration, err error) {
+func (r *NotificationReconciler) GetSynchronizationTime(notificationManifest *notifikv1alpha1.Notification) (synchronizationTime time.Duration, err error) {
 	synchronizationTime, err = time.ParseDuration(notificationManifest.Spec.Synchronization.Time)
 	if err != nil {
 		err = errors.New(fmt.Sprintf(parseSyncTimeError, notificationManifest.Name))
@@ -39,7 +39,7 @@ func (r *NotificationReconciler) GetSynchronizationTime(notificationManifest *jo
 }
 
 // ReconcileNotification call Kubernetes API to actually Notification the resource
-func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, eventType watch.EventType, notificationManifest *jokativ1alpha1.Notification) (err error) {
+func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, eventType watch.EventType, notificationManifest *notifikv1alpha1.Notification) (err error) {
 	logger := log.FromContext(ctx)
 
 	// TODO check if is the last watcher of his resource type in global map

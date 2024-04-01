@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
+	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
 )
 
 var _ = Describe("Notification Controller", func() {
@@ -40,13 +40,13 @@ var _ = Describe("Notification Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		notification := &jokativ1alpha1.Notification{}
+		notification := &notifikv1alpha1.Notification{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind Notification")
 			err := k8sClient.Get(ctx, typeNamespacedName, notification)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &jokativ1alpha1.Notification{
+				resource := &notifikv1alpha1.Notification{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -59,7 +59,7 @@ var _ = Describe("Notification Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &jokativ1alpha1.Notification{}
+			resource := &notifikv1alpha1.Notification{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 

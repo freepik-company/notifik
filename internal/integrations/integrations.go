@@ -5,9 +5,9 @@ import (
 	"reflect"
 
 	//
-	"freepik.com/jokati/internal/globals"
-	"freepik.com/jokati/internal/integrations/alertmanager"
-	"freepik.com/jokati/internal/integrations/webhook"
+	"freepik.com/notifik/internal/globals"
+	"freepik.com/notifik/internal/integrations/alertmanager"
+	"freepik.com/notifik/internal/integrations/webhook"
 )
 
 // SendMessage send a message to all configured integrations

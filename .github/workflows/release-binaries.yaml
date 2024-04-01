@@ -39,7 +39,7 @@ jobs:
           goarch: ${{ matrix.goarch }}
           goversion: "https://dl.google.com/go/go1.21.6.linux-amd64.tar.gz"
           project_path: "./cmd/"
-          binary_name: "jokati"
+          binary_name: "notifik"
           release_tag: ${{ inputs.release }}
           overwrite: true
           extra_files: LICENSE README.md

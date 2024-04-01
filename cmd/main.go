@@ -35,10 +35,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	//
-	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
-	"freepik.com/jokati/internal/controller"
-	"freepik.com/jokati/internal/globals"
-	"freepik.com/jokati/internal/xyz"
+	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
+	"freepik.com/notifik/internal/controller"
+	"freepik.com/notifik/internal/globals"
+	"freepik.com/notifik/internal/xyz"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -50,7 +50,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(jokativ1alpha1.AddToScheme(scheme))
+	utilruntime.Must(notifikv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -61,7 +61,7 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var configPath string
-	flag.StringVar(&configPath, "config", "jokati.yaml", "The path to configuration file.")
+	flag.StringVar(&configPath, "config", "notifik.yaml", "The path to configuration file.")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,

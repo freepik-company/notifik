@@ -6,13 +6,13 @@ metadata:
     app.kubernetes.io/name: clusterrole
     app.kubernetes.io/instance: notification-editor-role
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: jokati
-    app.kubernetes.io/part-of: jokati
+    app.kubernetes.io/created-by: notifik
+    app.kubernetes.io/part-of: notifik
     app.kubernetes.io/managed-by: kustomize
   name: notification-editor-role
 rules:
 - apiGroups:
-  - jokati.freepik.com
+  - notifik.freepik.com
   resources:
   - notifications
   verbs:
@@ -24,7 +24,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - jokati.freepik.com
+  - notifik.freepik.com
   resources:
   - notifications/status
   verbs:

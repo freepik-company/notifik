@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	//
-	"freepik.com/jokati/internal/globals"
+	"freepik.com/notifik/internal/globals"
 )
 
 const (

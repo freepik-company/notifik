@@ -1,4 +1,4 @@
-module freepik.com/jokati
+module freepik.com/notifik
 
 go 1.21
 

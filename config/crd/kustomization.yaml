@@ -2,7 +2,7 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/jokati.freepik.com_notifications.yaml
+- bases/notifik.freepik.com_notifications.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patches:

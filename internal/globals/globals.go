@@ -6,7 +6,7 @@ import (
 
 	"k8s.io/client-go/dynamic"
 
-	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
+	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
 )
 
 var (
@@ -26,7 +26,7 @@ type applicationT struct {
 	Context context.Context
 
 	// Configuration TODO
-	Configuration jokativ1alpha1.ConfigurationT
+	Configuration notifikv1alpha1.ConfigurationT
 
 	// KubeRawClient TODO
 	KubeRawClient *dynamic.DynamicClient
@@ -45,5 +45,5 @@ type ResourceTypeWatcherT struct {
 	StopSignal *chan bool
 
 	//
-	NotificationList *[]*jokativ1alpha1.Notification
+	NotificationList *[]*notifikv1alpha1.Notification
 }

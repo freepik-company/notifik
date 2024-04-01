@@ -48,6 +48,8 @@ func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, even
 		notificationManifest.Spec.Watch.Group,
 		notificationManifest.Spec.Watch.Version,
 		notificationManifest.Spec.Watch.Resource,
+		notificationManifest.Spec.Watch.Namespace,
+		notificationManifest.Spec.Watch.Name,
 	}, "/")
 	watchedType := globals.ResourceTypeName(watchedTypeString)
 
@@ -57,7 +59,10 @@ func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, even
 	}
 
 	notificationList := globals.Application.WatcherPool[watchedType].NotificationList
-	notificationIndex := globals.GetWatcherNotificationIndex(watchedType, notificationManifest)
+	//notificationIndex := globals.GetWatcherNotificationIndex(watchedType, notificationManifest)
+
+	notificationIndexes := globals.GetWatcherPoolNotificationIndexes(notificationManifest)
+	notificationIndex, notificationIndexFound := notificationIndexes[watchedTypeString]
 
 	// Delete Notification from WatcherPool and exit
 	if eventType == watch.Deleted {
@@ -65,25 +70,32 @@ func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, even
 			"watcher", watchedType)
 
 		// Notification found, delete it from the pool
-		if notificationIndex != -1 {
-
-			// Substitute the selected notification object with the last one from the list,
-			// then replace the whole list with it, minus the last.
-			(*notificationList)[notificationIndex] = (*notificationList)[len(*notificationList)-1]
-			*notificationList = (*notificationList)[:len(*notificationList)-1]
+		if notificationIndexFound {
+			globals.DeleteWatcherNotificationByIndex(watchedType, notificationIndex)
 		}
 		return nil
 	}
 
 	// Notification isn't found, create it into the pool
-	if notificationIndex == -1 {
+	if !notificationIndexFound {
 		logger.Info(watcherPoolAddedNotificationMessage,
 			"watcher", watchedType)
-		*notificationList = append(*notificationList, notificationManifest)
+
+		globals.CreateWatcherNotification(watchedType, notificationManifest)
 
 		// TODO: Decide if resourceType watcher restart is suitable on Notification creation events
 		//*(globals.Application.WatcherPool[watchedType].StopSignal) <- true
 		return nil
+	}
+
+	// Delete Notification from other Watchers when Notification is updated
+	if eventType == watch.Modified {
+		for currentWatchedType, currentNotificationIndex := range notificationIndexes {
+
+			if currentWatchedType != watchedTypeString {
+				globals.DeleteWatcherNotificationByIndex(globals.ResourceTypeName(currentWatchedType), currentNotificationIndex)
+			}
+		}
 	}
 
 	// Notification found, update it into the pool
@@ -91,6 +103,8 @@ func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, even
 	//logger.Info(watcherPoolUpdatedNotificationMessage,
 	//	"watcher", watchedType)
 	(*notificationList)[notificationIndex] = notificationManifest
+
+	// TODO: Create a cleaner to delete empty watchers from WatcherPool
 
 	// TODO: Decide if resourceType watcher restart is suitable on Notification update events
 	//*(globals.Application.WatcherPool[watchedType].StopSignal) <- true

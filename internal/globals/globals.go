@@ -2,6 +2,7 @@ package globals
 
 import (
 	"context"
+	"sync"
 
 	"k8s.io/client-go/dynamic"
 
@@ -36,6 +37,10 @@ type applicationT struct {
 
 // TODO
 type ResourceTypeWatcherT struct {
+	// Enforce concurrency safety
+	Mutex *sync.Mutex
+
+	//
 	Started    *bool
 	StopSignal *chan bool
 

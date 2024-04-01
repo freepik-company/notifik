@@ -5,6 +5,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
+	"sync"
 )
 
 // NewKubernetesClient return a new Kubernetes Dynamic client from client-go SDK
@@ -51,8 +52,10 @@ func InitWatcher(watcherType ResourceTypeName) {
 	var initialNotificationListState []*jokativ1alpha1.Notification
 
 	initialStopSignalState := make(chan bool)
+	initialMutexState := sync.Mutex{}
 
 	Application.WatcherPool[watcherType] = ResourceTypeWatcherT{
+		Mutex:            &initialMutexState,
 		Started:          &initialStartedState,
 		StopSignal:       &initialStopSignalState,
 		NotificationList: &initialNotificationListState,
@@ -72,4 +75,50 @@ func GetWatcherNotificationIndex(watcherType ResourceTypeName, notificationManif
 	}
 
 	return -1
+}
+
+// TODO
+func GetWatcherPoolNotificationIndexes(notificationManifest *jokativ1alpha1.Notification) (result map[string]int) {
+
+	result = make(map[string]int)
+
+	for watcherType, _ := range Application.WatcherPool {
+		notificationIndex := GetWatcherNotificationIndex(watcherType, notificationManifest)
+
+		if notificationIndex != -1 {
+			result[string(watcherType)] = notificationIndex
+		}
+	}
+
+	return result
+}
+
+// TODO
+func CreateWatcherNotification(watcherType ResourceTypeName, notificationManifest *jokativ1alpha1.Notification) {
+
+	notificationList := Application.WatcherPool[watcherType].NotificationList
+
+	(Application.WatcherPool[watcherType].Mutex).Lock()
+
+	temporaryManifest := (*notificationManifest).DeepCopy()
+	*notificationList = append(*notificationList, temporaryManifest)
+
+	(Application.WatcherPool[watcherType].Mutex).Unlock()
+}
+
+// TODO
+func DeleteWatcherNotificationByIndex(watcherType ResourceTypeName, notificationIndex int) {
+
+	notificationList := Application.WatcherPool[watcherType].NotificationList
+
+	(Application.WatcherPool[watcherType].Mutex).Lock()
+
+	// Substitute the selected notification object with the last one from the list,
+	// then replace the whole list with it, minus the last.
+	//(*notificationList)[notificationIndex] = (*notificationList)[len(*notificationList)-1]
+	//*notificationList = (*notificationList)[:len(*notificationList)-1]
+
+	*notificationList = append((*notificationList)[:notificationIndex], (*notificationList)[notificationIndex+1:]...)
+
+	(Application.WatcherPool[watcherType].Mutex).Unlock()
 }

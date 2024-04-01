@@ -85,6 +85,10 @@ spec:
                 properties:
                   group:
                     type: string
+                  name:
+                    type: string
+                  namespace:
+                    type: string
                   resource:
                     type: string
                   version:

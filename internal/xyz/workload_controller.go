@@ -20,6 +20,9 @@ import (
 	"context"
 	"fmt"
 	"freepik.com/jokati/internal/integrations"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/dynamic"
+	corelog "log"
 	"slices"
 	"strings"
 	"time"
@@ -114,21 +117,41 @@ func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.
 
 	notificationList := globals.Application.WatcherPool[watchedType].NotificationList
 
-	// Extract GVR from watched type:
-	// {group}/{version}/{resource}
-	GVR := strings.Split(string(watchedType), "/")
-	if len(GVR) != 3 {
+	// Extract GVR + Namespace + Name from watched type:
+	// {group}/{version}/{resource}/{namespace}/{name}
+	GVRNN := strings.Split(string(watchedType), "/")
+	if len(GVRNN) != 5 {
 		logger.Info(resourceWatcherGvrParsingError)
 		return
 	}
 	resourceGVR := schema.GroupVersionResource{
-		Group:    GVR[0],
-		Version:  GVR[1],
-		Resource: GVR[2],
+		Group:    GVRNN[0],
+		Version:  GVRNN[1],
+		Resource: GVRNN[2],
+	}
+
+	namespace := GVRNN[3]
+	name := GVRNN[4]
+
+	//
+	watchOptions := metav1.ListOptions{}
+
+	// Include the name when defined by the user
+	if name != "" {
+		// DOCS: Alternative way to do the same
+		// FieldSelector: fmt.Sprintf("metadata.name=%s", name),
+		watchOptions.FieldSelector = fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()
+	}
+
+	// Include the namespace when defined by the user
+	var resourceSelector dynamic.ResourceInterface
+	resourceSelector = globals.Application.KubeRawClient.Resource(resourceGVR)
+	if namespace != "" {
+		resourceSelector = globals.Application.KubeRawClient.Resource(resourceGVR).Namespace(namespace)
 	}
 
 	// Create a watcher for defined resources
-	resourceWatcher, err := globals.Application.KubeRawClient.Resource(resourceGVR).Watch(ctx, metav1.ListOptions{})
+	resourceWatcher, err := resourceSelector.Watch(ctx, watchOptions)
 	if err != nil {
 		logger.Info(fmt.Sprintf(kubeWatcherStartFailedError, string(watchedType), err))
 		return
@@ -183,6 +206,9 @@ func (r *WorkloadController) processEvent(ctx context.Context, notificationList 
 	if err != nil {
 		return err
 	}
+
+	corelog.Print("PROCESADO: ################################")
+	corelog.Print(objectBasicData)
 
 	for _, notification := range *notificationList {
 

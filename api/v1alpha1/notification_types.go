@@ -21,10 +21,12 @@ import (
 )
 
 // TODO
-type GroupVersionResource struct {
-	Group    string `json:"group"`
-	Version  string `json:"version"`
-	Resource string `json:"resource"`
+type NotificationWatch struct {
+	Group     string `json:"group"`
+	Version   string `json:"version"`
+	Resource  string `json:"resource"`
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name,omitempty"`
 }
 
 // TODO
@@ -50,7 +52,7 @@ type NotificationSpec struct {
 	// SynchronizationSpec defines the behavior of synchronization
 	Synchronization SynchronizationSpec `json:"synchronization"`
 
-	Watch      GroupVersionResource    `json:"watch"`
+	Watch      NotificationWatch       `json:"watch"`
 	Conditions []NotificationCondition `json:"conditions"`
 	Message    NotificationMessage     `json:"message"`
 }

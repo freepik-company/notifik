@@ -53,5 +53,5 @@ jobs:
             export TAG="${{ inputs.release }}"
           fi
           
-          export IMG="ghcr.io/freepik-company/jokati:$TAG" 
+          export IMG="ghcr.io/$GITHUB_REPOSITORY:$TAG" 
           make docker-buildx

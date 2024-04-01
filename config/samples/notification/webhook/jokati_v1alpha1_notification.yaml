@@ -9,19 +9,16 @@ metadata:
     app.kubernetes.io/created-by: jokati
   name: notification-sample-simple
 spec:
-  # Synchronization parameters
-  synchronization:
-    time: "10s"
-
   # Resource to be watched
   watch:
     group: ""
     version: v1
     resource: configmaps
 
-    #group: tekton.dev
-    #version: v1
-    #resource: pipelineruns
+    # (Optional) It's possible to watch specific resources
+    # name: testing
+    # namespace: default
+
 
   conditions:
     - name: check-configmap-name

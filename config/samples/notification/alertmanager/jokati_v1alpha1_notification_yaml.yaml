@@ -9,15 +9,15 @@ metadata:
     app.kubernetes.io/created-by: jokati
   name: notification-sample-alertmanager-yaml
 spec:
-  # Synchronization parameters
-  synchronization:
-    time: "10s"
-
   # Resource to be watched
   watch:
     group: ""
     version: v1
     resource: configmaps
+
+    # (Optional) It's possible to watch specific resources
+    # name: testing
+    # namespace: default
 
   conditions:
     - name: check-configmap-name

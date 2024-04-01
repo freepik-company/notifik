@@ -5,9 +5,7 @@ resources:
 - configmap-3.yaml
 - configmap-4.yaml
 
-
 #- jokati_v1alpha1_notification.yaml
 - notification/alertmanager/jokati_v1alpha1_notification_yaml.yaml
-
 
 #+kubebuilder:scaffold:manifestskustomizesamples

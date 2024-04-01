@@ -1,18 +1,11 @@
-# This is an example
-integrations:
+# (Optional) Configuration parameters to be able to connect with generic webhooks
+webhook:
+  url: "https://${WEBHOOK_TEST_USERNAME}:${WEBHOOK_TEST_PASSWORD}@webhook.site/98f1c771-bfaf-4c4f-81f6-f11c76684fcf"
+  headers:
+    X-Scope-OrgID: your-company
 
-  # Configuration parameters to be able to connect with RabbitMQ
-#  alertmanager:
-#    url: "https://mimir-gateway.tools.fpkmon.com"
-#    headers:
-#      X-Scope-OrgID: freepik-company
-
-#  webhook:
-#    url: "https://${TEST_USERNAME}:${TEST_PASSWORD}@webhook.site/98f1c771-bfaf-4c4f-81f6-f11c76684fcf"
-#    headers:
-#      X-Scope-OrgID: freepik-company
-
-  alertmanager:
-    url: "https://${TEST_USERNAME}:${TEST_PASSWORD}@webhook.site/d0fd5417-8931-476c-ae6e-c41eda3682af"
-    headers:
-      X-Scope-OrgID: freepik-company
+# (Optional) Configuration parameters to be able to connect with Alertmanager
+alertmanager:
+  url: "https://${TEST_USERNAME}:${TEST_PASSWORD}@webhook.site/d0fd5417-8931-476c-ae6e-c41eda3682af"
+  headers:
+    X-Scope-OrgID: freepik-company

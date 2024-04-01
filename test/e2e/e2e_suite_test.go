@@ -27,6 +27,6 @@ import (
 // Run e2e tests using the Ginkgo runner.
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(Fail)
-	fmt.Fprintf(GinkgoWriter, "Starting jokati suite\n")
+	fmt.Fprintf(GinkgoWriter, "Starting notifik suite\n")
 	RunSpecs(t, "e2e suite")
 }

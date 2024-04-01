@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"freepik.com/jokati/internal/globals"
+	"freepik.com/notifik/internal/globals"
 	"io"
 	corelog "log"
 	"net/http"

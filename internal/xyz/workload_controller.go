@@ -19,7 +19,7 @@ package xyz
 import (
 	"context"
 	"fmt"
-	"freepik.com/jokati/internal/integrations"
+	"freepik.com/notifik/internal/integrations"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/dynamic"
 	corelog "log"
@@ -36,9 +36,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	//
-	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
-	"freepik.com/jokati/internal/globals"
-	"freepik.com/jokati/internal/template"
+	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
+	"freepik.com/notifik/internal/globals"
+	"freepik.com/notifik/internal/template"
 )
 
 const (
@@ -193,7 +193,7 @@ func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.
 
 // processEvent process an event coming from a watched resource type.
 // It computes templating, evaluates conditions and decides whether to send a message for a given manifest
-func (r *WorkloadController) processEvent(ctx context.Context, notificationList *[]*jokativ1alpha1.Notification, object map[string]interface{}, eventType watch.EventType) (err error) {
+func (r *WorkloadController) processEvent(ctx context.Context, notificationList *[]*notifikv1alpha1.Notification, object map[string]interface{}, eventType watch.EventType) (err error) {
 	logger := log.FromContext(ctx)
 
 	// Process only certain event types

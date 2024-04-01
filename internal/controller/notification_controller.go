@@ -31,12 +31,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	//
-	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
+	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
 )
 
 const (
 	defaultSyncTimeForExitWithError = 10 * time.Second
-	notificationFinalizer           = "jokati.freepik.com/finalizer"
+	notificationFinalizer           = "notifik.freepik.com/finalizer"
 
 	scheduleSynchronization = "Schedule synchronization in: %s"
 
@@ -54,9 +54,9 @@ type NotificationReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=jokati.freepik.com,resources=notifications,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=jokati.freepik.com,resources=notifications/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=jokati.freepik.com,resources=notifications/finalizers,verbs=update
+//+kubebuilder:rbac:groups=notifik.freepik.com,resources=notifications,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=notifik.freepik.com,resources=notifications/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=notifik.freepik.com,resources=notifications/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=secrets;configmaps,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -68,7 +68,7 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	_ = logger
 
 	// 1. Get the content of the notification
-	notificationManifest := &jokativ1alpha1.Notification{}
+	notificationManifest := &notifikv1alpha1.Notification{}
 	err = r.Get(ctx, req.NamespacedName, notificationManifest)
 
 	// 2. Check the existence inside the cluster
@@ -156,6 +156,6 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *NotificationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&jokativ1alpha1.Notification{}).
+		For(&notifikv1alpha1.Notification{}).
 		Complete(r)
 }

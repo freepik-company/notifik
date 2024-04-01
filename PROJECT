@@ -5,16 +5,16 @@
 domain: freepik.com
 layout:
 - go.kubebuilder.io/v4
-projectName: jokati
-repo: freepik.com/jokati
+projectName: notifik
+repo: freepik.com/notifik
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
   domain: freepik.com
-  group: jokati
+  group: notifik
   kind: Notification
-  path: freepik.com/jokati/api/v1alpha1
+  path: freepik.com/notifik/api/v1alpha1
   version: v1alpha1
 version: "3"

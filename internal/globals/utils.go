@@ -1,7 +1,7 @@
 package globals
 
 import (
-	jokativ1alpha1 "freepik.com/jokati/api/v1alpha1"
+	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
 	"k8s.io/client-go/dynamic"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
@@ -49,7 +49,7 @@ func SplitCommaSeparatedValues(input []string) []string {
 func InitWatcher(watcherType ResourceTypeName) {
 
 	var initialStartedState bool = false
-	var initialNotificationListState []*jokativ1alpha1.Notification
+	var initialNotificationListState []*notifikv1alpha1.Notification
 
 	initialStopSignalState := make(chan bool)
 	initialMutexState := sync.Mutex{}
@@ -63,7 +63,7 @@ func InitWatcher(watcherType ResourceTypeName) {
 }
 
 // TODO
-func GetWatcherNotificationIndex(watcherType ResourceTypeName, notificationManifest *jokativ1alpha1.Notification) (result int) {
+func GetWatcherNotificationIndex(watcherType ResourceTypeName, notificationManifest *notifikv1alpha1.Notification) (result int) {
 
 	notificationList := Application.WatcherPool[watcherType].NotificationList
 
@@ -78,7 +78,7 @@ func GetWatcherNotificationIndex(watcherType ResourceTypeName, notificationManif
 }
 
 // TODO
-func GetWatcherPoolNotificationIndexes(notificationManifest *jokativ1alpha1.Notification) (result map[string]int) {
+func GetWatcherPoolNotificationIndexes(notificationManifest *notifikv1alpha1.Notification) (result map[string]int) {
 
 	result = make(map[string]int)
 
@@ -94,7 +94,7 @@ func GetWatcherPoolNotificationIndexes(notificationManifest *jokativ1alpha1.Noti
 }
 
 // TODO
-func CreateWatcherNotification(watcherType ResourceTypeName, notificationManifest *jokativ1alpha1.Notification) {
+func CreateWatcherNotification(watcherType ResourceTypeName, notificationManifest *notifikv1alpha1.Notification) {
 
 	notificationList := Application.WatcherPool[watcherType].NotificationList
 

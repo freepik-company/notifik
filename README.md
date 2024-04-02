@@ -47,13 +47,14 @@ They are described in the following table:
 
 | Name                          | Description                                                        | Default Example |                                       |
 |:------------------------------|:-------------------------------------------------------------------|:---------------:|---------------------------------------|
-| `--config`                    | The path to configuration file                                     |  `notifik.yaml`  | `--config "./notifik.yaml"`            |
+| `--config`                    | The path to configuration file                                     | `notifik.yaml`  | `--config "./notifik.yaml"`           |
 | `--kubeconfig`                | Path to kubeconfig                                                 |       `-`       | `--kubeconfig="~/.kube/config"`       |   
 | `--enable-http2`              | If set, HTTP/2 will be enabled for the metrics and webhook servers |     `false`     | `--enable-http2 true`                 |
 | `--metrics-secure`            | If set the metrics endpoint is served securely                     |     `false`     | `--metrics-secure true`               |
 | `--leader-elect`              | Enable leader election for controller manager                      |     `false`     | `--leader-elect true`                 |
 | `--health-probe-bind-address` | The address the probe endpoint binds to                            |       `-`       | `--health-probe-bind-address ":8091"` |
 | `--metrics-bind-address`      | The address the metric endpoint binds to                           |     `:8080`     | `--metrics-bind-address ":8090"`      |
+| `--events-per-second`         | Amount of events processed per second (best effort)                |      `20`       | `--events-per-second 50`              |
 
 ## Config
 
@@ -226,14 +227,14 @@ spec:
     value: testing
 ```
 
-> Remember: with a big power comes big responsibility
+> Remember: with a big power comes a big responsibility
 > ```gotemplate
 > {{- $source := . -}}
 > ```
 
 ### How to debug
 
-Template issues are thrown on controller logs. This is done this way as a watcher is intended to watch a group of 
+Templating issues are thrown on controller logs. This is done this way as a watcher is intended to watch a group of 
 resources, so if we create a status condition into the `Notification`, we could end creating potentially hundreds
 of conditions: one per object that is being watched
 
@@ -280,7 +281,7 @@ Reliability is important to us, so we automated all the process of launching a r
 
 For a better understanding of the process, the steps are described in the following recipe:
 
-1. Test the changes on the code:
+1. Test the changes in the code:
 
     ```console
     make test

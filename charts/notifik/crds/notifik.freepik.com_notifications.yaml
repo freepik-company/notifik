@@ -72,14 +72,6 @@ spec:
                 - data
                 - reason
                 type: object
-              synchronization:
-                description: SynchronizationSpec defines the behavior of synchronization
-                properties:
-                  time:
-                    type: string
-                required:
-                - time
-                type: object
               watch:
                 description: TODO
                 properties:
@@ -101,7 +93,6 @@ spec:
             required:
             - conditions
             - message
-            - synchronization
             - watch
             type: object
           status:

@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "notifik.fullname" . }}
+  labels:
+    {{- include "notifik.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.controller.autoscaling.enabled }}
+  replicas: {{ .Values.controller.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "notifik.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.controller.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "notifik.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.controller.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "notifik.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.controller.podSecurityContext | nindent 8 }}
+      containers:
+
+        {{- if and (.Values.controller.metrics.enabled) (.Values.controller.metrics.rbacProtectionEnabled) }}
+        - args:
+          - --secure-listen-address=0.0.0.0:8443
+          - --upstream=http://127.0.0.1:8080/
+          - --logtostderr=true
+          - --v=0
+          image: gcr.io/kubebuilder/kube-rbac-proxy:v0.15.1
+          name: kube-rbac-proxy
+          ports:
+            - containerPort: 8443
+              name: metrics
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 500m
+              memory: 128Mi
+            requests:
+              cpu: 5m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+        {{- end }}
+
+        - args:
+          {{- if and (.Values.controller.metrics.enabled) }}
+          - --metrics-bind-address=127.0.0.1:8080
+          {{- end }}
+          - --health-probe-bind-address=:8081
+          - --leader-elect
+          - --config=/notifik.yaml
+          {{- with .Values.controller.extraArgs }}
+          {{ toYaml . | nindent 10 }}
+          {{- end }}
+
+          {{- with .Values.controller.env }}
+          {{ toYaml . | nindent 10 }}
+          {{- end }}
+
+          {{- with .Values.controller.envFrom }}
+          {{ toYaml . | nindent 10 }}
+          {{- end }}
+
+          {{- if and (.Values.controller.metrics.enabled) (not .Values.controller.metrics.rbacProtectionEnabled) }}
+          ports:
+            - containerPort: 8080
+              name: metrics
+              protocol: TCP
+          {{- end }}
+          command:
+            - /manager
+          image: "{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
+          imagePullPolicy: {{ .Values.controller.image.pullPolicy }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          name: manager
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.controller.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.controller.securityContext | nindent 12 }}
+
+          volumeMounts:
+            - name: config-volume
+              mountPath: /notifik.yaml
+              subPath: notifik.yaml
+
+            {{- with .Values.controller.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+      {{- with .Values.controller.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controller.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controller.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ include "notifik.fullname" . }}-config
+            defaultMode: 420
+
+        {{- with .Values.controller.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+

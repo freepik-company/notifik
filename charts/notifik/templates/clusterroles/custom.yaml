@@ -1,0 +1,18 @@
+{{- if (.Values.customClusterRole.create) -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "notifik.fullname" . }}-custom
+  labels:
+    {{- include "notifik.labels" . | nindent 4 }}
+  {{- if .Values.customClusterRole.annotations }}
+  annotations:
+    {{- range $key, $value := .Values.customClusterRole.annotations }}
+    {{- printf "%s: %s" $key (tpl $value $ | quote) | nindent 4 }}
+    {{- end }}
+  {{- end }}
+rules:
+  {{- if .Values.customClusterRole.rules -}}
+  {{ toYaml .Values.customClusterRole.rules | nindent 2 -}}
+  {{- end }}
+{{- end }}

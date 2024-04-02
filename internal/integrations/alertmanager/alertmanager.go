@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"freepik.com/notifik/internal/globals"
 	"io"
-	corelog "log"
 	"net/http"
 	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"time"
+	// corelog "log"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"freepik.com/notifik/internal/globals"
 )
 
 const (
@@ -27,10 +29,6 @@ const (
 func SendMessage(ctx context.Context, reason string, data string) (err error) {
 	logger := log.FromContext(ctx)
 	_ = logger
-
-	corelog.Print("###########################################")
-	corelog.Print(data)
-	corelog.Print("###########################################")
 
 	// 1. Check whether the data meets the requirements for Alertmanager
 	alert := Alert{}
@@ -60,7 +58,7 @@ func SendMessage(ctx context.Context, reason string, data string) (err error) {
 	}
 
 	// TODO: DEBUG
-	corelog.Print(string(alertsJson))
+	//corelog.Print(string(alertsJson))
 
 	// 4. Perform HTTP request against Alertmanager
 	httpClient := &http.Client{}

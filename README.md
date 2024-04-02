@@ -231,6 +231,17 @@ spec:
 > {{- $source := . -}}
 > ```
 
+### How to debug
+
+Template issues are thrown on controller logs. This is done this way as a watcher is intended to watch a group of 
+resources, so if we create a status condition into the `Notification`, we could end creating potentially hundreds
+of conditions: one per object that is being watched
+
+To debug templates easy, we recommend using [helm-playground](https://helm-playground.com). 
+You can create a template on the left side, put your manifests in the middle, and the result is shown on the right side.
+
+[We created an example for you](https://helm-playground.com/#t=N7C0AIBIGcHsFcBOBjApuAXAXnAOgGoCGANvKtLgLaEB2AlgGbkAu4oAvuwFAgSQAOqQZhwAKfojo1mDcAAMu0ZoUTNoAQWYZwAIgBMABj0AWUAYDMoPQHYAKgYCcGAKzmM587j0AOcwC0dLlQaABMNLV1DEzNLG3snV3dPH39A2hpYZWY6WBpoDC5wcEIQkLps3JIABURYfgBGbSVJGgBzQuLS8pyaatr%2BPSbmFvaikrKK3uIaurdwZql24kIAI1RifI7eynJ%2BQjRtAFJocC3CHaPoLlbg1ERCZlhEAFUAJQAZIZHQfmW0AAtYMQQnc5FA4Eg0FRUMoQg9CLhtrt9ugYAgUKhobD4YjzqgAJRsTg8MDgBi1SgATXOxCggmEAB9wI8AFJwGhE9hAA&v=LQhQFsEMDsEsDMCmBnALgLlAAi5ADrAGqIBOysA9tOlgG4CM2WA1rNACY0DCV8sA5gFl8TcIlSR2kCZhw5okMTVQpUbfk3mKUeSAGNENAFYBXGLFQUmUmZqwAVAKIBlewH1CAQQBKNAER4ADb6iAAWFIHspH5AA)
+
 ## How to develop
 
 > We recommend you to use a development tool like [Kind](https://kind.sigs.k8s.io/) 

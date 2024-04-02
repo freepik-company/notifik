@@ -2,11 +2,7 @@ package controller
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strings"
-	"time"
-
 	//
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -26,17 +22,6 @@ const (
 	watcherPoolUpdatedNotificationMessage = "A Notification will be modified into the WatcherPool"
 	watcherPoolDeletedNotificationMessage = "A Notification will be deleted from WatcherPool"
 )
-
-// GetSynchronizationTime return the spec.synchronization.time as duration, or default time on failures
-func (r *NotificationReconciler) GetSynchronizationTime(notificationManifest *notifikv1alpha1.Notification) (synchronizationTime time.Duration, err error) {
-	synchronizationTime, err = time.ParseDuration(notificationManifest.Spec.Synchronization.Time)
-	if err != nil {
-		err = errors.New(fmt.Sprintf(parseSyncTimeError, notificationManifest.Name))
-		return synchronizationTime, err
-	}
-
-	return synchronizationTime, err
-}
 
 // ReconcileNotification call Kubernetes API to actually Notification the resource
 func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, eventType watch.EventType, notificationManifest *notifikv1alpha1.Notification) (err error) {

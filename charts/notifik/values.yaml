@@ -39,7 +39,7 @@ customClusterRole:
 # Remember Notifik supports environment variables expansion, so you can use this pattern ${SOMETHING_SECRET}
 # as you were in your terminal
 # Ref: https://github.com/freepik-company/notifik?tab=readme-ov-file#config
-configuration: ""
+configuration: {}
 
 # TODO
 controller:

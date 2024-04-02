@@ -35,7 +35,7 @@ jobs:
         with:
           charts_dir: charts
         env:
-          CR_OWNER: "${{ $GITHUB_REPOSITORY_OWNER }}"
+          CR_OWNER: "$GITHUB_REPOSITORY_OWNER"
           CR_GIT_REPO: notifik
           CR_SKIP_EXISTING: true
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: testing-2
-data:
-  TEST_VAR: "placeholder"

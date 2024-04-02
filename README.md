@@ -14,7 +14,7 @@ Please refer to Helm's [documentation](https://helm.sh/docs/) to get started.
 Once Helm is set up properly, add the repo as follows:
 
 ```console
-helm repo add prosimcorp https://freepik-company.github.io/notifik/
+helm repo add notifik https://freepik-company.github.io/notifik/
 ```
 
 You can then run the following command to see the charts.

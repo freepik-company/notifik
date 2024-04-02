@@ -326,7 +326,14 @@ For a better understanding of the process, the steps are described in the follow
 
 2. Using Helm
 
-   > TBD in a future release
+   Detailed instructions can be found in Notifik's Helm registry, [hosted on GitHub pages](https://freepik-company.github.io/notifik/)
+
+   ```console
+   helm repo add notifik https://freepik-company.github.io/notifik/
+   helm search repo notifik
+
+   helm install notifik . -n notifik --create-namespace
+   ```
 
 
 ## How to collaborate

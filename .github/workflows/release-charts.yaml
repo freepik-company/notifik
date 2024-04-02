@@ -34,6 +34,8 @@ jobs:
         uses: helm/chart-releaser-action@v1.5.0
         with:
           charts_dir: charts
+          packages_with_index: true
+          pages_branch: helm-registry
         env:
           CR_OWNER: "$GITHUB_REPOSITORY_OWNER"
           CR_GIT_REPO: notifik

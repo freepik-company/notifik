@@ -1,5 +1,7 @@
 # Notifik
 
+<img src="https://raw.githubusercontent.com/achetronic/notifik/master/docs/img/logo.png" alt="Notifik Logo (Main) logo." width="150">
+
 ![GitHub go.mod Go version (subdirectory of monorepo)](https://img.shields.io/github/go-mod/go-version/freepik-company/tekton-exporter)
 ![GitHub](https://img.shields.io/github/license/freepik-company/tekton-exporter)
 

@@ -36,7 +36,7 @@ jobs:
           charts_dir: charts
           packages_with_index: true
           pages_branch: helm-registry
-          config: chart-releaser-config.yaml
+          config: .github/chart-releaser-config.yaml
         env:
           CR_OWNER: "$GITHUB_REPOSITORY_OWNER"
           CR_GIT_REPO: notifik

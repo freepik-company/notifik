@@ -61,7 +61,8 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var configPath string
-	flag.StringVar(&configPath, "config", "notifik.yaml", "The path to configuration file.")
+	var eventsPerSecond int
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -71,6 +72,9 @@ func main() {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.StringVar(&configPath, "config", "notifik.yaml", "The path to configuration file.")
+	flag.IntVar(&eventsPerSecond, "events-per-second", 20, "Amount of events processed per second (best effort)")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -79,10 +83,9 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	// Parse the config TODO
+	// Parse the config file
 	configBytes, err := os.ReadFile(configPath)
 	if err != nil {
-		// TODO decidir
 		setupLog.Error(err, "unable to find configuration YAML")
 		os.Exit(1)
 	}
@@ -167,12 +170,16 @@ func main() {
 	globals.Application.Context = ctrl.SetupSignalHandler()
 	globals.Application.KubeRawClient, err = globals.NewKubernetesClient()
 	if err != nil {
-		// TODO check the error
+		setupLog.Error(err, "unable to set up kubernetes client")
+		os.Exit(1)
 	}
 
-	// TODO
+	// Init secondary controller to process coming events
 	workloadController := xyz.WorkloadController{
 		Client: mgr.GetClient(),
+		Options: xyz.WorkloadControllerOptions{
+			EventsPerSecond: eventsPerSecond,
+		},
 	}
 
 	setupLog.Info("starting workload controller")

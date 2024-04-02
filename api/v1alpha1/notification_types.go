@@ -42,16 +42,8 @@ type NotificationMessage struct {
 	Data   string `json:"data"`
 }
 
-// SynchronizationSpec defines the spec of the synchronization section of a Notification
-type SynchronizationSpec struct {
-	Time string `json:"time"`
-}
-
 // NotificationSpec defines the desired state of Notification
 type NotificationSpec struct {
-	// SynchronizationSpec defines the behavior of synchronization
-	Synchronization SynchronizationSpec `json:"synchronization"`
-
 	Watch      NotificationWatch       `json:"watch"`
 	Conditions []NotificationCondition `json:"conditions"`
 	Message    NotificationMessage     `json:"message"`

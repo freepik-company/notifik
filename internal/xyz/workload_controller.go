@@ -22,7 +22,6 @@ import (
 	"freepik.com/notifik/internal/integrations"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/dynamic"
-	corelog "log"
 	"slices"
 	"strings"
 	"time"
@@ -44,11 +43,13 @@ import (
 const (
 	// Default values
 	secondsBetweenWatchingRetries = 10 * time.Second
-	processedEventsPerSecond      = 2
 
 	//
 	controllerContextFinishedMessage = "xyz.WorkloadController finished by context"
 	controllerWatcherStartedMessage  = "Watcher for '%s' has been started"
+	controllerWatcherKilledMessage   = "Watcher for resource type '%s' killed by StopSignal"
+
+	evengConditionsTriggerIntegrationsMessage = "Object has met conditions. Integrations will be triggered"
 
 	kubeWatcherStartFailedError    = "Impossible to watch resource type '%s'. RBAC issues?: %s"
 	watchedObjectParseError        = "Impossible to process watched object: %s"
@@ -61,9 +62,19 @@ const (
 	eventMessageGoTemplateError   = "Go templating reported failure for object message: %s"
 )
 
-// WorkloadController TODO
+type WorkloadControllerOptions struct {
+	// Events to be processed per second (best effort policy)
+	EventsPerSecond int
+}
+
+// WorkloadController represents the controller that triggers parallel threads.
+// These threads process coming events against the conditions defined in Notification CRs
+// Each thread is a watcher in charge of a group of resources GVRNN (Group + Version + Resource + Namespace + Name)
 type WorkloadController struct {
 	Client client.Client
+
+	//
+	Options WorkloadControllerOptions
 }
 
 // Start launches the XYZ.WorkloadController and keeps it alive
@@ -162,12 +173,12 @@ func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.
 	go func(p watch.Interface) {
 		<-*(globals.Application.WatcherPool[watchedType].StopSignal)
 		p.Stop()
-		logger.Info(fmt.Sprintf("Watcher for resource type '%s' killed by StopSignal", watchedType))
+		logger.Info(fmt.Sprintf(controllerWatcherKilledMessage, watchedType))
 	}(resourceWatcher)
 
 	// Calculate waiting time between loops to process N items per second
 	// Done this way to allow limitation of consumed resources
-	waitDuration := time.Second / time.Duration(processedEventsPerSecond)
+	waitDuration := time.Second / time.Duration(r.Options.EventsPerSecond)
 
 	//
 	for WatchEvent := range resourceWatcher.ResultChan() {
@@ -207,9 +218,6 @@ func (r *WorkloadController) processEvent(ctx context.Context, notificationList 
 		return err
 	}
 
-	corelog.Print("PROCESADO: ################################")
-	corelog.Print(objectBasicData)
-
 	for _, notification := range *notificationList {
 
 		var conditionFlags []bool
@@ -238,6 +246,11 @@ func (r *WorkloadController) processEvent(ctx context.Context, notificationList 
 				"error", err).Info(eventMessageGoTemplateError)
 			continue
 		}
+
+		logger.WithValues(
+			"notification", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
+			"object", fmt.Sprintf("%s/%s", objectBasicData["namespace"], objectBasicData["name"])).
+			Info(evengConditionsTriggerIntegrationsMessage)
 
 		// Send the message through integrations
 		err = integrations.SendMessage(ctx, notification.Spec.Message.Reason, parsedMessage)

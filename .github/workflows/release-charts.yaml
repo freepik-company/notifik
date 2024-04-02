@@ -35,6 +35,7 @@ jobs:
         with:
           charts_dir: charts
           packages_with_index: true
+          pages_branch: helm-registry
         env:
           CR_OWNER: "$GITHUB_REPOSITORY_OWNER"
           CR_GIT_REPO: notifik

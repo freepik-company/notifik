@@ -6,7 +6,7 @@ metadata:
     {{- include "notifik.labels" . | nindent 4 }}
 rules:
   - apiGroups:
-    - notifik.prosimcorp.com
+    - notifik.freepik.com
     resources:
     - notifications
     verbs:
@@ -18,13 +18,13 @@ rules:
     - update
     - watch
   - apiGroups:
-    - notifik.prosimcorp.com
+    - notifik.freepik.com
     resources:
     - notifications/finalizers
     verbs:
     - update
   - apiGroups:
-    - notifik.prosimcorp.com
+    - notifik.freepik.com
     resources:
     - notifications/status
     verbs:

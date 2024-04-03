@@ -18,10 +18,17 @@ import (
 )
 
 const (
-	HttpEventVerb = "POST"
+	//
+	HttpEventVerb                = "POST"
+	HttpNotificationReasonHeader = "X-Notification-Reason"
 
+	//
 	HttpRequestCreationErrorMessage = "error creating http request: %s"
 	HttpRequestSendingErrorMessage  = "error sending http request: %s"
+
+	alertDataUnmarshalErrorMessage         = "error decoding JSON from Notification data: %s"
+	alertListMarshalErrorMessage           = "error encoding alerts into JSON to be sent to Alertmanager: %s"
+	alertDataRequiredStructureErrorMessage = "notification 'data' field does not meet the syntax requirements for Alertmanager"
 )
 
 // SendMessage TODO
@@ -34,11 +41,11 @@ func SendMessage(ctx context.Context, reason string, data string) (err error) {
 	alert := Alert{}
 	err = json.Unmarshal([]byte(data), &alert)
 	if err != nil {
-		return errors.New(fmt.Sprintf("pepito: %s", err))
+		return errors.New(fmt.Sprintf(alertDataUnmarshalErrorMessage, err))
 	}
 
 	if reflect.ValueOf(alert).IsZero() {
-		return errors.New("notification 'data' field does not meet the syntax requirements for Alertmanager")
+		return errors.New(alertDataRequiredStructureErrorMessage)
 	}
 
 	// 2. Set the main label for the alert.
@@ -54,7 +61,7 @@ func SendMessage(ctx context.Context, reason string, data string) (err error) {
 	alertList := AlertList{alert}
 	alertsJson, err := json.Marshal(alertList)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Cannot convert back alert into JSON: %s", err))
+		return errors.New(fmt.Sprintf(alertListMarshalErrorMessage, err))
 	}
 
 	// TODO: DEBUG
@@ -76,7 +83,7 @@ func SendMessage(ctx context.Context, reason string, data string) (err error) {
 		httpRequest.Header.Set(headerKey, headerValue)
 	}
 
-	httpRequest.Header.Set("X-Notification-Reason", reason)
+	httpRequest.Header.Set(HttpNotificationReasonHeader, reason)
 
 	// Add data to the request
 	httpRequest.Body = io.NopCloser(bytes.NewBuffer(alertsJson))

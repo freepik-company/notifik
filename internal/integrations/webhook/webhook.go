@@ -17,9 +17,12 @@ import (
 )
 
 const (
-	HttpEventPattern = `{"reason":"%s","data":"%s","timestamp":"%s"}`
-	HttpEventVerb    = "POST"
+	//
+	HttpEventPattern             = `{"reason":"%s","data":"%s","timestamp":"%s"}`
+	HttpEventVerb                = "POST"
+	HttpNotificationReasonHeader = "X-Notification-Reason"
 
+	//
 	HttpRequestCreationErrorMessage = "error creating http request: %s"
 	HttpRequestSendingErrorMessage  = "error sending http request: %s"
 )
@@ -43,7 +46,7 @@ func SendMessage(ctx context.Context, reason string, data string) (err error) {
 		httpRequest.Header.Set(headerKey, headerValue)
 	}
 
-	httpRequest.Header.Set("X-Notification-Reason", reason)
+	httpRequest.Header.Set(HttpNotificationReasonHeader, reason)
 
 	// Add data to the request
 	payload := []byte(fmt.Sprintf(HttpEventPattern, reason, data, time.Now().In(time.Local)))

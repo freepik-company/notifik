@@ -55,9 +55,12 @@ func InitWatcher(watcherType ResourceTypeName) {
 	initialMutexState := sync.Mutex{}
 
 	Application.WatcherPool[watcherType] = ResourceTypeWatcherT{
-		Mutex:            &initialMutexState,
-		Started:          &initialStartedState,
-		StopSignal:       &initialStopSignalState,
+		Mutex: &initialMutexState,
+
+		Started: &initialStartedState,
+		//Blocked:    &initialBlockedState,
+		StopSignal: &initialStopSignalState,
+
 		NotificationList: &initialNotificationListState,
 	}
 }

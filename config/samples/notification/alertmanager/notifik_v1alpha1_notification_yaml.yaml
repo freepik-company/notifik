@@ -28,7 +28,6 @@ spec:
         {{- printf "%s" $source.metadata.name -}}
       value: testing
 
-  # TODO: Fix last line, we need it broken for testing purposes
   message:
     reason: "PipelineRunTimeout"
     data: |
@@ -43,4 +42,4 @@ spec:
           namespace: %s
           name: %s
         generatorURL: string-placeholder` $now $source.metadata.namespace $source.metadata.name) -}}
-      {{- printf # fromYaml $alertStructure | toJson -}}
+      {{- fromYaml $alertStructure | toJson -}}

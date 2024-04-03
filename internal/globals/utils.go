@@ -49,6 +49,7 @@ func SplitCommaSeparatedValues(input []string) []string {
 func InitWatcher(watcherType ResourceTypeName) {
 
 	var initialStartedState bool = false
+	var initialBlockedState bool = false
 	var initialNotificationListState []*notifikv1alpha1.Notification
 
 	initialStopSignalState := make(chan bool)
@@ -57,8 +58,8 @@ func InitWatcher(watcherType ResourceTypeName) {
 	Application.WatcherPool[watcherType] = ResourceTypeWatcherT{
 		Mutex: &initialMutexState,
 
-		Started: &initialStartedState,
-		//Blocked:    &initialBlockedState,
+		Started:    &initialStartedState,
+		Blocked:    &initialBlockedState,
 		StopSignal: &initialStopSignalState,
 
 		NotificationList: &initialNotificationListState,

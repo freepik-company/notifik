@@ -45,11 +45,13 @@ const (
 	secondsBetweenWatchingRetries = 10 * time.Second
 
 	//
-	controllerContextFinishedMessage = "xyz.WorkloadController finished by context"
-	controllerWatcherStartedMessage  = "Watcher for '%s' has been started"
-	controllerWatcherKilledMessage   = "Watcher for resource type '%s' killed by StopSignal"
+	controllerContextFinishedMessage         = "xyz.WorkloadController finished by context"
+	controllerWatcherStartedMessage          = "Watcher for '%s' has been started"
+	controllerWatcherKilledMessage           = "Watcher for resource type '%s' killed by StopSignal"
+	controllerWatcherLaunchingBlockedMessage = "Watcher for '%s' is blocked and will not be started"
 
-	evengConditionsTriggerIntegrationsMessage = "Object has met conditions. Integrations will be triggered"
+	eventConditionsTriggerIntegrationsMessage = "Object has met conditions. Integrations will be triggered"
+	eventReceivedMessage                      = "Object event received"
 
 	kubeWatcherStartFailedError    = "Impossible to watch resource type '%s'. RBAC issues?: %s"
 	watchedObjectParseError        = "Impossible to process watched object: %s"
@@ -99,6 +101,12 @@ func (r *WorkloadController) ReconcileWatchers(ctx context.Context) {
 	logger := log.FromContext(ctx)
 
 	for resourceType, resourceTypeWatcher := range globals.Application.WatcherPool {
+
+		// Prevent blocked watchers from being started
+		if *resourceTypeWatcher.Blocked {
+			logger.Info(fmt.Sprintf(controllerWatcherLaunchingBlockedMessage, resourceType))
+			continue
+		}
 
 		if !*resourceTypeWatcher.Started {
 			go r.watchType(ctx, resourceType)
@@ -218,6 +226,12 @@ func (r *WorkloadController) processEvent(ctx context.Context, notificationList 
 		return err
 	}
 
+	// TODO: Show info about incoming object: GVRNN
+	// TODO: Include these logs only under a flag
+	// logger.WithValues(
+	// 	"object", fmt.Sprintf("%s/%s", objectBasicData["namespace"], objectBasicData["name"])).
+	// 	Info(eventReceivedMessage)
+
 	for _, notification := range *notificationList {
 
 		var conditionFlags []bool
@@ -250,7 +264,7 @@ func (r *WorkloadController) processEvent(ctx context.Context, notificationList 
 		logger.WithValues(
 			"notification", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
 			"object", fmt.Sprintf("%s/%s", objectBasicData["namespace"], objectBasicData["name"])).
-			Info(evengConditionsTriggerIntegrationsMessage)
+			Info(eventConditionsTriggerIntegrationsMessage)
 
 		// Send the message through integrations
 		err = integrations.SendMessage(ctx, notification.Spec.Message.Reason, parsedMessage)

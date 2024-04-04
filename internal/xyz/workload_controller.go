@@ -41,8 +41,13 @@ import (
 )
 
 const (
-	// Default values
-	secondsBetweenWatchingRetries = 10 * time.Second
+	// secondsToCheckWatcherAck is the number of seconds before checking
+	// whether a watcher is started or not during watchers' reconciling process
+	secondsToCheckWatcherAck = 10 * time.Second
+
+	// secondsBetweenWatchersReconcilingRetries is the number of seconds to wait between
+	// loops in watchers' reconciling process (avoid the spam, mate)
+	secondsBetweenWatchersReconcilingRetries = 2 * time.Second
 
 	//
 	controllerContextFinishedMessage         = "xyz.WorkloadController finished by context"
@@ -90,38 +95,49 @@ func (r *WorkloadController) Start(ctx context.Context) {
 			logger.Info(controllerContextFinishedMessage)
 			return
 		default:
-			r.ReconcileWatchers(ctx)
+			r.reconcileWatchers(ctx)
 		}
 	}
 }
 
-// ReconcileWatchers launches a parallel process that launches
+// reconcileWatchers launches a parallel process that launches
 // watchers for resource types defined into the WatcherPool
-func (r *WorkloadController) ReconcileWatchers(ctx context.Context) {
+func (r *WorkloadController) reconcileWatchers(ctx context.Context) {
 	logger := log.FromContext(ctx)
 
-	for resourceType, resourceTypeWatcher := range globals.Application.WatcherPool {
+	for resourceType, resourceTypeWatcher := range globals.Application.WatcherPool.Pool {
 
-		// Prevent blocked watchers from being started
+		// TODO: Is this really needed or useful?
+		// Check the existence of the resourceType into the WatcherPool.
+		// Remember the controller.NotificationController can remove watchers on garbage collection
+		if _, resourceTypeFound := globals.Application.WatcherPool.Pool[resourceType]; !resourceTypeFound {
+			continue
+		}
+
+		// Prevent blocked watchers from being started.
+		// Remember the controller.NotificationController blocks them during garbage collection
 		if *resourceTypeWatcher.Blocked {
-			logger.Info(fmt.Sprintf(controllerWatcherLaunchingBlockedMessage, resourceType))
 			continue
 		}
 
 		if !*resourceTypeWatcher.Started {
 			go r.watchType(ctx, resourceType)
 
+			// TODO: Improve following logic in future versions
+
 			// Wait for the resourceType watcher to ACK itself into WatcherPool
-			// TODO: Improve this logic in future version
-			time.Sleep(secondsBetweenWatchingRetries)
-			if *(globals.Application.WatcherPool[resourceType].Started) == false {
+			time.Sleep(secondsToCheckWatcherAck)
+			if *(globals.Application.WatcherPool.Pool[resourceType].Started) == false {
 				logger.Info(fmt.Sprintf(resourceWatcherLaunchingError, resourceType))
 			}
 		}
+
+		// Wait a bit to reduce the spam to machine resources
+		time.Sleep(secondsBetweenWatchersReconcilingRetries)
 	}
 }
 
-// WatchType launches a watcher for a certain resource type, and trigger processing for each entering resource event
+// watchType launches a watcher for a certain resource type, and trigger processing for each entering resource event
 func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.ResourceTypeName) {
 
 	logger := log.FromContext(ctx)
@@ -129,12 +145,12 @@ func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.
 	logger.Info(fmt.Sprintf(controllerWatcherStartedMessage, watchedType))
 
 	// Set ACK flag for watcher launching into the WatcherPool
-	*(globals.Application.WatcherPool[watchedType].Started) = true
+	*(globals.Application.WatcherPool.Pool[watchedType].Started) = true
 	defer func() {
-		*(globals.Application.WatcherPool[watchedType].Started) = false
+		*(globals.Application.WatcherPool.Pool[watchedType].Started) = false
 	}()
 
-	notificationList := globals.Application.WatcherPool[watchedType].NotificationList
+	notificationList := globals.Application.WatcherPool.Pool[watchedType].NotificationList
 
 	// Extract GVR + Namespace + Name from watched type:
 	// {group}/{version}/{resource}/{namespace}/{name}
@@ -179,7 +195,7 @@ func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.
 
 	// Listen to stop signal to kill this watcher just in case it's needed
 	go func(p watch.Interface) {
-		<-*(globals.Application.WatcherPool[watchedType].StopSignal)
+		<-*(globals.Application.WatcherPool.Pool[watchedType].StopSignal)
 		p.Stop()
 		logger.Info(fmt.Sprintf(controllerWatcherKilledMessage, watchedType))
 	}(resourceWatcher)

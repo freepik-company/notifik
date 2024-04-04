@@ -62,6 +62,7 @@ func main() {
 	var enableHTTP2 bool
 	var configPath string
 	var eventsPerSecond int
+	var enableWatcherPoolCleaner bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -74,6 +75,8 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.StringVar(&configPath, "config", "notifik.yaml", "The path to configuration file.")
 	flag.IntVar(&eventsPerSecond, "events-per-second", 20, "Amount of events processed per second (best effort)")
+	flag.BoolVar(&enableWatcherPoolCleaner, "enable-watcher-cleaner", false,
+		"If set, WatcherPool cleaner will be enabled for orphan watchers")
 
 	opts := zap.Options{
 		Development: true,
@@ -148,6 +151,10 @@ func main() {
 	if err = (&controller.NotificationReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+
+		Options: controller.NotificationControllerOptions{
+			EnableWatcherPoolCleaner: enableWatcherPoolCleaner,
+		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Notification")
 		os.Exit(1)

@@ -55,6 +55,7 @@ They are described in the following table:
 | `--health-probe-bind-address` | The address the probe endpoint binds to                            |       `-`       | `--health-probe-bind-address ":8091"` |
 | `--metrics-bind-address`      | The address the metric endpoint binds to                           |     `:8080`     | `--metrics-bind-address ":8090"`      |
 | `--events-per-second`         | Amount of events processed per second (best effort)                |      `20`       | `--events-per-second 50`              |
+| `--enable-watcher-cleaner`    | Enable a WatcherPool cleaning process for orphan watchers          |     `false`     | `--enable-watcher-cleaner true`       |
 
 ## Config
 

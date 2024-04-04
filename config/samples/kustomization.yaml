@@ -1,11 +1,11 @@
 ## Append samples of your project ##
 resources:
+  # Sample resources
   - configmap.yaml
-  - configmap-2.yaml
-  - configmap-3.yaml
-  - configmap-4.yaml
+  - secret.yaml
 
   #
   - notification/alertmanager/notifik_v1alpha1_notification_yaml.yaml
+  - notification/alertmanager/notifik_v1alpha1_notification_json.yaml
 
   #+kubebuilder:scaffold:manifestskustomizesamples

@@ -1,11 +1,15 @@
 package globals
 
 import (
-	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
+	"errors"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sync"
+	"time"
+
 	"k8s.io/client-go/dynamic"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"strings"
-	"sync"
+
+	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
 )
 
 // NewKubernetesClient return a new Kubernetes Dynamic client from client-go SDK
@@ -24,27 +28,6 @@ func NewKubernetesClient() (client *dynamic.DynamicClient, err error) {
 	return client, err
 }
 
-// CopyMap return a map that is a real copy of the original
-// Ref: https://go.dev/blog/maps
-func CopyMap(src map[string]interface{}) map[string]interface{} {
-	m := make(map[string]interface{}, len(src))
-	for k, v := range src {
-		m[k] = v
-	}
-	return m
-}
-
-// SplitCommaSeparatedValues get a list of strings and return a new list
-// where each element containing commas is divided in separated elements
-func SplitCommaSeparatedValues(input []string) []string {
-	var result []string
-	for _, item := range input {
-		parts := strings.Split(item, ",")
-		result = append(result, parts...)
-	}
-	return result
-}
-
 // TODO
 func InitWatcher(watcherType ResourceTypeName) {
 
@@ -55,7 +38,7 @@ func InitWatcher(watcherType ResourceTypeName) {
 	initialStopSignalState := make(chan bool)
 	initialMutexState := sync.Mutex{}
 
-	Application.WatcherPool[watcherType] = ResourceTypeWatcherT{
+	Application.WatcherPool.Pool[watcherType] = ResourceTypeWatcherT{
 		Mutex: &initialMutexState,
 
 		Started:    &initialStartedState,
@@ -69,7 +52,7 @@ func InitWatcher(watcherType ResourceTypeName) {
 // TODO
 func GetWatcherNotificationIndex(watcherType ResourceTypeName, notificationManifest *notifikv1alpha1.Notification) (result int) {
 
-	notificationList := Application.WatcherPool[watcherType].NotificationList
+	notificationList := Application.WatcherPool.Pool[watcherType].NotificationList
 
 	for notificationIndex, notification := range *notificationList {
 		if (notification.Name == notificationManifest.Name) &&
@@ -86,7 +69,7 @@ func GetWatcherPoolNotificationIndexes(notificationManifest *notifikv1alpha1.Not
 
 	result = make(map[string]int)
 
-	for watcherType, _ := range Application.WatcherPool {
+	for watcherType, _ := range Application.WatcherPool.Pool {
 		notificationIndex := GetWatcherNotificationIndex(watcherType, notificationManifest)
 
 		if notificationIndex != -1 {
@@ -100,22 +83,22 @@ func GetWatcherPoolNotificationIndexes(notificationManifest *notifikv1alpha1.Not
 // TODO
 func CreateWatcherNotification(watcherType ResourceTypeName, notificationManifest *notifikv1alpha1.Notification) {
 
-	notificationList := Application.WatcherPool[watcherType].NotificationList
+	notificationList := Application.WatcherPool.Pool[watcherType].NotificationList
 
-	(Application.WatcherPool[watcherType].Mutex).Lock()
+	(Application.WatcherPool.Pool[watcherType].Mutex).Lock()
 
 	temporaryManifest := (*notificationManifest).DeepCopy()
 	*notificationList = append(*notificationList, temporaryManifest)
 
-	(Application.WatcherPool[watcherType].Mutex).Unlock()
+	(Application.WatcherPool.Pool[watcherType].Mutex).Unlock()
 }
 
 // TODO
 func DeleteWatcherNotificationByIndex(watcherType ResourceTypeName, notificationIndex int) {
 
-	notificationList := Application.WatcherPool[watcherType].NotificationList
+	notificationList := Application.WatcherPool.Pool[watcherType].NotificationList
 
-	(Application.WatcherPool[watcherType].Mutex).Lock()
+	(Application.WatcherPool.Pool[watcherType].Mutex).Lock()
 
 	// Substitute the selected notification object with the last one from the list,
 	// then replace the whole list with it, minus the last.
@@ -124,5 +107,67 @@ func DeleteWatcherNotificationByIndex(watcherType ResourceTypeName, notification
 
 	*notificationList = append((*notificationList)[:notificationIndex], (*notificationList)[notificationIndex+1:]...)
 
-	(Application.WatcherPool[watcherType].Mutex).Unlock()
+	(Application.WatcherPool.Pool[watcherType].Mutex).Unlock()
+}
+
+// DeleteWatcherFromWatcherPool delete a watcher from the WatcherPool.
+// It first blocks the watcher to prevent it from being started by xyz.WorkloadController,
+// then blocks the WatcherPool temporary while deleting the watcher.
+func DeleteWatcherFromWatcherPool(watcherType ResourceTypeName) (result bool, err error) {
+
+	// 1. Prevent watcher from being started again
+	//Application.WatcherPool.Pool[watcherType].Mutex.Lock()
+	*Application.WatcherPool.Pool[watcherType].Blocked = true
+	//Application.WatcherPool.Pool[watcherType].Mutex.Unlock()
+
+	// 2. Stop the watcher
+	*Application.WatcherPool.Pool[watcherType].StopSignal <- true
+
+	// 3. Wait for the watcher to be stopped. Return false on failure
+	stoppedWatcher := false
+
+	for i := 0; i < 10; i++ {
+		if !*Application.WatcherPool.Pool[watcherType].Started {
+			stoppedWatcher = true
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	if !stoppedWatcher {
+		return false, errors.New("impossible to stop the watcher")
+	}
+
+	// 4. Delete the watcher from the WatcherPool.Pool
+	Application.WatcherPool.Mutex.Lock()
+	delete(Application.WatcherPool.Pool, watcherType)
+	Application.WatcherPool.Mutex.Unlock()
+
+	if _, keyFound := Application.WatcherPool.Pool[watcherType]; keyFound {
+		return false, errors.New("impossible to delete the watcherType from WatcherPool")
+	}
+
+	return true, nil
+}
+
+// CleanWatcherPool check the WatcherPool looking for empty watchers to trigger their deletion.
+// This function is intended to be executed on its own, so returns nothing
+func CleanWatcherPool() {
+	logger := log.FromContext(Application.Context)
+
+	for watcherType, _ := range Application.WatcherPool.Pool {
+
+		if len(*Application.WatcherPool.Pool[watcherType].NotificationList) != 0 {
+			continue
+		}
+
+		watcherDeleted, err := DeleteWatcherFromWatcherPool(watcherType)
+		if !watcherDeleted {
+			logger.WithValues("watcher", watcherType, "error", err).
+				Info("watcher was not deleted from WatcherPool")
+		}
+
+		logger.WithValues("watcher", watcherType).
+			Info("watcher has been deleted from WatcherPool")
+	}
 }

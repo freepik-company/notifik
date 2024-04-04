@@ -48,10 +48,19 @@ const (
 	notificationReconcileError         = "Can not reconcile Notification: %s"
 )
 
+type NotificationControllerOptions struct {
+
+	// Enable WatcherPool cleaner process
+	EnableWatcherPoolCleaner bool
+}
+
 // NotificationReconciler reconciles a Notification object
 type NotificationReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	//
+	Options NotificationControllerOptions
 }
 
 //+kubebuilder:rbac:groups=notifik.freepik.com,resources=notifications,verbs=get;list;watch;create;update;patch;delete

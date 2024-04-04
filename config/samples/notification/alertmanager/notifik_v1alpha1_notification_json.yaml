@@ -13,7 +13,7 @@ spec:
   watch:
     group: ""
     version: v1
-    resource: configmaps
+    resource: secrets
 
     # (Optional) It's possible to watch specific resources
     # name: testing

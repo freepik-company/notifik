@@ -27,8 +27,6 @@ const (
 func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, eventType watch.EventType, notificationManifest *notifikv1alpha1.Notification) (err error) {
 	logger := log.FromContext(ctx)
 
-	// TODO check if is the last watcher of his resource type in global map
-
 	watchedTypeString := strings.Join([]string{
 		notificationManifest.Spec.Watch.Group,
 		notificationManifest.Spec.Watch.Version,
@@ -39,11 +37,11 @@ func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, even
 	watchedType := globals.ResourceTypeName(watchedTypeString)
 
 	// Initialize the watcher into WatcherPool when not registered
-	if _, watcherFound := globals.Application.WatcherPool[watchedType]; !watcherFound {
+	if _, watcherFound := globals.Application.WatcherPool.Pool[watchedType]; !watcherFound {
 		globals.InitWatcher(watchedType)
 	}
 
-	notificationList := globals.Application.WatcherPool[watchedType].NotificationList
+	notificationList := globals.Application.WatcherPool.Pool[watchedType].NotificationList
 	//notificationIndex := globals.GetWatcherNotificationIndex(watchedType, notificationManifest)
 
 	notificationIndexes := globals.GetWatcherPoolNotificationIndexes(notificationManifest)
@@ -84,15 +82,17 @@ func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, even
 	}
 
 	// Notification found, update it into the pool
-	// TODO: Decide if we want to log everything related to state
-	//logger.Info(watcherPoolUpdatedNotificationMessage,
-	//	"watcher", watchedType)
 	(*notificationList)[notificationIndex] = notificationManifest
 
-	// TODO: Create a cleaner to delete empty watchers from WatcherPool
+	// TODO: Decide whether the cleaner should be executed by this controller or xyz.WorkloadController
+	// Delete empty watcher from the WatcherPool.
+	// This can be enabled setting a flag
+	if r.Options.EnableWatcherPoolCleaner {
+		globals.CleanWatcherPool()
+	}
 
-	// TODO: Decide if resourceType watcher restart is suitable on Notification update events
-	//*(globals.Application.WatcherPool[watchedType].StopSignal) <- true
+	// TODO: DELETE. DEBUG PURPOSES
+	// corelog.Printf("notification controller loop checkpoint. event type: %v", eventType)
+
 	return nil
-
 }

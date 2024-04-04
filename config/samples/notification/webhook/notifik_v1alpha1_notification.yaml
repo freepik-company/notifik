@@ -30,7 +30,7 @@ spec:
       value: testing
 
   message:
-    reason: "PipelineRunTimeout"
+    reason: "NameMatchedAlert"
     data: |
       {{- $source := . -}}
       {{- printf "Hi, I'm on fire: %s/%s" $source.metadata.namespace $source.metadata.name -}}

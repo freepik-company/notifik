@@ -2,13 +2,15 @@ package globals
 
 import (
 	"errors"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
 	"time"
 
+	//
 	"k8s.io/client-go/dynamic"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	//
 	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
 )
 
@@ -110,22 +112,23 @@ func DeleteWatcherNotificationByIndex(watcherType ResourceTypeName, notification
 	(Application.WatcherPool.Pool[watcherType].Mutex).Unlock()
 }
 
-// DeleteWatcherFromWatcherPool delete a watcher from the WatcherPool.
+// DisableWatcherFromWatcherPool disable a watcher from the WatcherPool.
 // It first blocks the watcher to prevent it from being started by xyz.WorkloadController,
-// then blocks the WatcherPool temporary while deleting the watcher.
-func DeleteWatcherFromWatcherPool(watcherType ResourceTypeName) (result bool, err error) {
+// then blocks the WatcherPool temporary while killing the watcher.
+func DisableWatcherFromWatcherPool(watcherType ResourceTypeName) (result bool, err error) {
+
+	//Application.WatcherPool.Pool[watcherType].Mutex.Lock()
 
 	// 1. Prevent watcher from being started again
-	//Application.WatcherPool.Pool[watcherType].Mutex.Lock()
 	*Application.WatcherPool.Pool[watcherType].Blocked = true
-	//Application.WatcherPool.Pool[watcherType].Mutex.Unlock()
 
 	// 2. Stop the watcher
 	*Application.WatcherPool.Pool[watcherType].StopSignal <- true
 
+	//Application.WatcherPool.Pool[watcherType].Mutex.Unlock()
+
 	// 3. Wait for the watcher to be stopped. Return false on failure
 	stoppedWatcher := false
-
 	for i := 0; i < 10; i++ {
 		if !*Application.WatcherPool.Pool[watcherType].Started {
 			stoppedWatcher = true
@@ -139,13 +142,13 @@ func DeleteWatcherFromWatcherPool(watcherType ResourceTypeName) (result bool, er
 	}
 
 	// 4. Delete the watcher from the WatcherPool.Pool
-	Application.WatcherPool.Mutex.Lock()
-	delete(Application.WatcherPool.Pool, watcherType)
-	Application.WatcherPool.Mutex.Unlock()
+	//Application.WatcherPool.Mutex.Lock()
+	//delete(Application.WatcherPool.Pool, watcherType)
+	//Application.WatcherPool.Mutex.Unlock()
 
-	if _, keyFound := Application.WatcherPool.Pool[watcherType]; keyFound {
-		return false, errors.New("impossible to delete the watcherType from WatcherPool")
-	}
+	//if _, keyFound := Application.WatcherPool.Pool[watcherType]; keyFound {
+	//	return false, errors.New("impossible to delete the watcherType from WatcherPool")
+	//}
 
 	return true, nil
 }
@@ -161,10 +164,11 @@ func CleanWatcherPool() {
 			continue
 		}
 
-		watcherDeleted, err := DeleteWatcherFromWatcherPool(watcherType)
+		watcherDeleted, err := DisableWatcherFromWatcherPool(watcherType)
 		if !watcherDeleted {
 			logger.WithValues("watcher", watcherType, "error", err).
 				Info("watcher was not deleted from WatcherPool")
+			continue
 		}
 
 		logger.WithValues("watcher", watcherType).

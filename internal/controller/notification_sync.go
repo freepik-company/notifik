@@ -37,8 +37,14 @@ func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, even
 	watchedType := globals.ResourceTypeName(watchedTypeString)
 
 	// Initialize the watcher into WatcherPool when not registered
-	if _, watcherFound := globals.Application.WatcherPool.Pool[watchedType]; !watcherFound {
+	watcherObject, watcherFound := globals.Application.WatcherPool.Pool[watchedType]
+	if !watcherFound {
 		globals.InitWatcher(watchedType)
+	}
+
+	// Re-enable it when disabled, but requested by the user
+	if watcherFound && *watcherObject.Blocked {
+		*watcherObject.Blocked = false
 	}
 
 	notificationList := globals.Application.WatcherPool.Pool[watchedType].NotificationList
@@ -56,6 +62,13 @@ func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, even
 		if notificationIndexFound {
 			globals.DeleteWatcherNotificationByIndex(watchedType, notificationIndex)
 		}
+
+		// Delete empty watcher from the WatcherPool.
+		// This can be enabled setting a flag
+		if r.Options.EnableWatcherPoolCleaner {
+			globals.CleanWatcherPool()
+		}
+
 		return nil
 	}
 

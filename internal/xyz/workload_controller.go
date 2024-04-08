@@ -232,6 +232,7 @@ func (r *WorkloadController) watchTypeWithWatcher(ctx context.Context, watchedTy
 	go func(p *clientgowatch.RetryWatcher) {
 		<-*(globals.Application.WatcherPool.Pool[watchedType].StopSignal)
 		p.Done()
+		p.Stop()
 		logger.Info(fmt.Sprintf(controllerWatcherKilledMessage, watchedType))
 	}(resourceRetryWatcher)
 
@@ -306,10 +307,11 @@ func (r *WorkloadController) watchTypeWithInformer(ctx context.Context, watchedT
 	}
 
 	// Listen to stop signal to kill this watcher just in case it's needed
-	var stopCh chan struct{}
+	stopCh := make(chan struct{})
+
 	go func() {
 		<-*(globals.Application.WatcherPool.Pool[watchedType].StopSignal)
-		stopCh <- struct{}{}
+		close(stopCh)
 		logger.Info(fmt.Sprintf(controllerWatcherKilledMessage, watchedType))
 	}()
 

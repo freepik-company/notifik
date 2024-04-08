@@ -181,15 +181,15 @@ spec:
       # The 'key' field admits vitamin Golang templating (well known from Helm)
       # The result of this field will be compared with 'value' for equality
       key: |
-        {{- $source := .object -}}
-        {{- printf "%s" $source.metadata.name -}}
+        {{- $object := .object -}}
+        {{- printf "%s" $object.metadata.name -}}
       value: testing
 
   message:
     reason: "NameMatchedAlert"
     data: |
-      {{- $source := .object -}}
-      {{- printf "Hi, I'm on fire: %s/%s" $source.metadata.namespace $source.metadata.name -}}
+      {{- $object := .object -}}
+      {{- printf "Hi, I'm on fire: %s/%s" $object.metadata.namespace $object.metadata.name -}}
 ```
 
 ## Templating engine
@@ -226,7 +226,10 @@ spec:
     # The 'key' field admits vitamin Golang templating (well known from Helm)
     # The result of this field will be compared with 'value' for equality
     key: |
-      {{- $source := .object -}}
+      {{- $evenType := (.eventType | toString) -}}
+      {{- $object := .object -}}
+      {{- $previousObject := (.previousObject | default dict) -}}
+       
       {{- printf "%s" $source.metadata.name -}}
     value: testing
 ```

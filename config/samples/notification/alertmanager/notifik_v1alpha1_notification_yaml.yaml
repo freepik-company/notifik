@@ -24,15 +24,15 @@ spec:
       # The 'key' field admits vitamin Golang templating (well known from Helm)
       # The result of this field will be compared with 'value' for equality
       key: |
-        {{- $source := .object -}}
-        {{- printf "%s" $source.metadata.name -}}
+        {{- $object := .object -}}
+        {{- printf "%s" $object.metadata.name -}}
       value: testing
 
   message:
     reason: "NameMatchedAlert"
     data: |
       {{- $evenType := (.eventType | toString) -}}
-      {{- $source := .object -}}
+      {{- $object := .object -}}
       {{- $previousObject := (.previousObject | default dict) -}}
       
       {{- $now := (now | date "2006-01-02T15:04:05Z07:00") -}}
@@ -46,5 +46,5 @@ spec:
         labels:
           namespace: %s
           name: %s
-        generatorURL: string-placeholder` $now $evenType ($previousObject | toJson | b64enc) $source.metadata.namespace $source.metadata.name) -}}
+        generatorURL: string-placeholder` $now $evenType ($previousObject | toJson | b64enc) $object.metadata.namespace $object.metadata.name) -}}
       {{- fromYaml $alertStructure | toJson -}}

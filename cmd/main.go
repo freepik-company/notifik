@@ -21,6 +21,8 @@ import (
 	"flag"
 	"gopkg.in/yaml.v2"
 	"os"
+	"time"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -63,7 +65,7 @@ func main() {
 	var configPath string
 	var enableWatcherPoolCleaner bool
 	var watcherEventsPerSecond int
-	var informerSecondsToResync int
+	var informerDurationToResync time.Duration
 	var useWatchers bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -79,7 +81,7 @@ func main() {
 	flag.BoolVar(&enableWatcherPoolCleaner, "enable-watcher-cleaner", false,
 		"If set, WatcherPool cleaner will be enabled for orphan watchers")
 	flag.IntVar(&watcherEventsPerSecond, "watcher-events-per-second", 20, "Amount of events processed per second by watchers (best effort)")
-	flag.IntVar(&informerSecondsToResync, "informer-seconds-to-resync", 300, "Amount of seconds to resync all the objects by informers")
+	flag.DurationVar(&informerDurationToResync, "informer-duration-to-resync", 300*time.Second, "Duration to wait until resyncing all the objects by informers")
 	flag.BoolVar(&useWatchers, "use-watchers", false,
 		"If set, client-go will use watchers instead of informers (this decreases resiliency saving resources)")
 
@@ -196,7 +198,7 @@ func main() {
 			WatcherEventsPerSecond: watcherEventsPerSecond,
 
 			// Options for Informers
-			InformerSecondsToResync: informerSecondsToResync,
+			InformerDurationToResync: informerDurationToResync,
 		},
 	}
 

@@ -1,7 +1,7 @@
 integrations:
   # (Optional) Configuration parameters to be able to connect with generic webhooks
   webhook:
-    url: "https://${WEBHOOK_TEST_USERNAME}:${WEBHOOK_TEST_PASSWORD}@webhook.site/dffa7c58-a11f-4bc5-9ead-305fa2ac6237"
+    url: "https://${WEBHOOK_TEST_USERNAME}:${WEBHOOK_TEST_PASSWORD}@webhook.site/c78d856d-8cb3-41e8-ae1c-964c6e8bf304"
     headers:
       X-Scope-OrgID: your-company
 

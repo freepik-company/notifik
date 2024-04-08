@@ -31,15 +31,20 @@ spec:
   message:
     reason: "NameMatchedAlert"
     data: |
+      {{- $evenType := (.eventType | toString) -}}
       {{- $source := .object -}}
+      {{- $previousObject := (.previousObject | default dict) -}}
+      
       {{- $now := (now | date "2006-01-02T15:04:05Z07:00") -}}
       {{- $alertStructure := (printf `
         startsAt: "%s"
         annotations:
+          eventType: %s,
+          previousObject: %s,
           additionalProp1: string
           additionalProp2: string
         labels:
           namespace: %s
           name: %s
-        generatorURL: string-placeholder` $now $source.metadata.namespace $source.metadata.name) -}}
+        generatorURL: string-placeholder` $now $evenType ($previousObject | toJson | b64enc) $source.metadata.namespace $source.metadata.name) -}}
       {{- fromYaml $alertStructure | toJson -}}

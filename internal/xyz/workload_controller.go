@@ -79,14 +79,6 @@ const (
 	eventMessageGoTemplateError   = "Go templating reported failure for object message: %s"
 )
 
-// TemplateInjectedObject represents the object that will be injected on
-// Notification conditions and message on Go template evaluation stage
-type TemplateInjectedObject struct {
-	EventType string
-	Object    map[string]interface{}
-	ObjectOld map[string]interface{}
-}
-
 // WorkloadControllerOptions represents available options that can be passed
 // to WorkloadController on start
 type WorkloadControllerOptions struct {
@@ -100,9 +92,9 @@ type WorkloadControllerOptions struct {
 
 	// Options for Informers
 
-	// Seconds to wait until resync all the objects
+	// Duration to wait until resync all the objects
 	// when using informers
-	InformerSecondsToResync int
+	InformerDurationToResync time.Duration
 }
 
 // WorkloadController represents the controller that triggers parallel threads.
@@ -323,7 +315,7 @@ func (r *WorkloadController) watchTypeWithInformer(ctx context.Context, watchedT
 
 	// Define our informer TODO
 	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(globals.Application.KubeRawClient,
-		secondsToResyncInformers, namespace, listOptionsFunc)
+		r.Options.InformerDurationToResync, namespace, listOptionsFunc)
 
 	// Optional TODO
 	//factory.WaitForCacheSync(stopCh)

@@ -45,19 +45,19 @@ This is exactly our proposal
 Some configuration parameters can be defined by flags that can be passed to the controller.
 They are described in the following table:
 
-| Name                           | Description                                                                                           | Default Example |                                       |
-|:-------------------------------|:------------------------------------------------------------------------------------------------------|:---------------:|---------------------------------------|
-| `--config`                     | The path to configuration file                                                                        | `notifik.yaml`  | `--config "./notifik.yaml"`           |
-| `--kubeconfig`                 | Path to kubeconfig                                                                                    |       `-`       | `--kubeconfig="~/.kube/config"`       |   
-| `--enable-http2`               | If set, HTTP/2 will be enabled for the metrics and webhook servers                                    |     `false`     | `--enable-http2 true`                 |
-| `--metrics-secure`             | If set the metrics endpoint is served securely                                                        |     `false`     | `--metrics-secure true`               |
-| `--leader-elect`               | Enable leader election for controller manager                                                         |     `false`     | `--leader-elect true`                 |
-| `--health-probe-bind-address`  | The address the probe endpoint binds to                                                               |       `-`       | `--health-probe-bind-address ":8091"` |
-| `--metrics-bind-address`       | The address the metric endpoint binds to                                                              |     `:8080`     | `--metrics-bind-address ":8090"`      |
-| `--enable-watcher-cleaner`     | Enable a WatcherPool cleaning process for orphan watchers                                             |     `false`     | `--enable-watcher-cleaner true`       |
-| `--watcher-events-per-second`  | Amount of events processed per second by watchers (best effort)                                       |      `20`       | `--watcher-events-per-second 50`      |
-| `--informer-seconds-to-resync` | Amount of seconds to resync all the objects by informers                                              |      `300`      | `--informer-seconds-to-resync 600`    |
-| `--use-watchers`               | If set, client-go will use watchers instead of informers (this decreases resiliency saving resources) |     `false`     | `--use-watchers true`                 |
+| Name                            | Description                                                                                           | Default Example |                                       |
+|:--------------------------------|:------------------------------------------------------------------------------------------------------|:---------------:|---------------------------------------|
+| `--config`                      | The path to configuration file                                                                        | `notifik.yaml`  | `--config "./notifik.yaml"`           |
+| `--kubeconfig`                  | Path to kubeconfig                                                                                    |       `-`       | `--kubeconfig="~/.kube/config"`       |   
+| `--enable-http2`                | If set, HTTP/2 will be enabled for the metrics and webhook servers                                    |     `false`     | `--enable-http2 true`                 |
+| `--metrics-secure`              | If set the metrics endpoint is served securely                                                        |     `false`     | `--metrics-secure true`               |
+| `--leader-elect`                | Enable leader election for controller manager                                                         |     `false`     | `--leader-elect true`                 |
+| `--health-probe-bind-address`   | The address the probe endpoint binds to                                                               |       `-`       | `--health-probe-bind-address ":8091"` |
+| `--metrics-bind-address`        | The address the metric endpoint binds to                                                              |     `:8080`     | `--metrics-bind-address ":8090"`      |
+| `--enable-watcher-cleaner`      | Enable a WatcherPool cleaning process for orphan watchers                                             |     `false`     | `--enable-watcher-cleaner true`       |
+| `--watcher-events-per-second`   | Amount of events processed per second by watchers (best effort)                                       |      `20`       | `--watcher-events-per-second 50`      |
+| `--informer-duration-to-resync` | Duration to wait until resyncing all the objects by informers                                         |     `300s`      | `--informer-duration-to-resync 10m`   |
+| `--use-watchers`                | If set, client-go will use watchers instead of informers (this decreases resiliency saving resources) |     `false`     | `--use-watchers true`                 |
 
 ## Config
 

@@ -45,17 +45,19 @@ This is exactly our proposal
 Some configuration parameters can be defined by flags that can be passed to the controller.
 They are described in the following table:
 
-| Name                          | Description                                                        | Default Example |                                       |
-|:------------------------------|:-------------------------------------------------------------------|:---------------:|---------------------------------------|
-| `--config`                    | The path to configuration file                                     | `notifik.yaml`  | `--config "./notifik.yaml"`           |
-| `--kubeconfig`                | Path to kubeconfig                                                 |       `-`       | `--kubeconfig="~/.kube/config"`       |   
-| `--enable-http2`              | If set, HTTP/2 will be enabled for the metrics and webhook servers |     `false`     | `--enable-http2 true`                 |
-| `--metrics-secure`            | If set the metrics endpoint is served securely                     |     `false`     | `--metrics-secure true`               |
-| `--leader-elect`              | Enable leader election for controller manager                      |     `false`     | `--leader-elect true`                 |
-| `--health-probe-bind-address` | The address the probe endpoint binds to                            |       `-`       | `--health-probe-bind-address ":8091"` |
-| `--metrics-bind-address`      | The address the metric endpoint binds to                           |     `:8080`     | `--metrics-bind-address ":8090"`      |
-| `--events-per-second`         | Amount of events processed per second (best effort)                |      `20`       | `--events-per-second 50`              |
-| `--enable-watcher-cleaner`    | Enable a WatcherPool cleaning process for orphan watchers          |     `false`     | `--enable-watcher-cleaner true`       |
+| Name                           | Description                                                                                           | Default Example |                                       |
+|:-------------------------------|:------------------------------------------------------------------------------------------------------|:---------------:|---------------------------------------|
+| `--config`                     | The path to configuration file                                                                        | `notifik.yaml`  | `--config "./notifik.yaml"`           |
+| `--kubeconfig`                 | Path to kubeconfig                                                                                    |       `-`       | `--kubeconfig="~/.kube/config"`       |   
+| `--enable-http2`               | If set, HTTP/2 will be enabled for the metrics and webhook servers                                    |     `false`     | `--enable-http2 true`                 |
+| `--metrics-secure`             | If set the metrics endpoint is served securely                                                        |     `false`     | `--metrics-secure true`               |
+| `--leader-elect`               | Enable leader election for controller manager                                                         |     `false`     | `--leader-elect true`                 |
+| `--health-probe-bind-address`  | The address the probe endpoint binds to                                                               |       `-`       | `--health-probe-bind-address ":8091"` |
+| `--metrics-bind-address`       | The address the metric endpoint binds to                                                              |     `:8080`     | `--metrics-bind-address ":8090"`      |
+| `--enable-watcher-cleaner`     | Enable a WatcherPool cleaning process for orphan watchers                                             |     `false`     | `--enable-watcher-cleaner true`       |
+| `--watcher-events-per-second`  | Amount of events processed per second by watchers (best effort)                                       |      `20`       | `--watcher-events-per-second 50`      |
+| `--informer-seconds-to-resync` | Amount of seconds to resync all the objects by informers                                              |      `300`      | `--informer-seconds-to-resync 600`    |
+| `--use-watchers`               | If set, client-go will use watchers instead of informers (this decreases resiliency saving resources) |     `false`     | `--use-watchers true`                 |
 
 ## Config
 
@@ -179,14 +181,14 @@ spec:
       # The 'key' field admits vitamin Golang templating (well known from Helm)
       # The result of this field will be compared with 'value' for equality
       key: |
-        {{- $source := . -}}
+        {{- $source := .object -}}
         {{- printf "%s" $source.metadata.name -}}
       value: testing
 
   message:
     reason: "NameMatchedAlert"
     data: |
-      {{- $source := . -}}
+      {{- $source := .object -}}
       {{- printf "Hi, I'm on fire: %s/%s" $source.metadata.namespace $source.metadata.name -}}
 ```
 
@@ -206,7 +208,8 @@ already know from [Helm Template](https://helm.sh/docs/chart_template_guide/func
 When a watched resource triggers an event, we pass the whole manifest to all the conditions (and even to
 the alert data). 
 
-This means the manifest (as Go object) is available in the main scope `.`. You can retrieve it as follows:
+This means the event type, the manifest (as Go object) and previous object (on update events) are available 
+in the main scope `.eventType`, `.object`, `.previousObject` 
 
 This means that the objects can be accessed or stored in variables in the following way:
 ```yaml
@@ -223,7 +226,7 @@ spec:
     # The 'key' field admits vitamin Golang templating (well known from Helm)
     # The result of this field will be compared with 'value' for equality
     key: |
-      {{- $source := . -}}
+      {{- $source := .object -}}
       {{- printf "%s" $source.metadata.name -}}
     value: testing
 ```

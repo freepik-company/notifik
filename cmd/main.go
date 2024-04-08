@@ -78,7 +78,7 @@ func main() {
 	flag.StringVar(&configPath, "config", "notifik.yaml", "The path to configuration file.")
 	flag.BoolVar(&enableWatcherPoolCleaner, "enable-watcher-cleaner", false,
 		"If set, WatcherPool cleaner will be enabled for orphan watchers")
-	flag.IntVar(&watcherEventsPerSecond, "watcher-events-per-second", 20, "Amount of events processed per second by pure watchers (best effort)")
+	flag.IntVar(&watcherEventsPerSecond, "watcher-events-per-second", 20, "Amount of events processed per second by watchers (best effort)")
 	flag.IntVar(&informerSecondsToResync, "informer-seconds-to-resync", 300, "Amount of seconds to resync all the objects by informers")
 	flag.BoolVar(&useWatchers, "use-watchers", false,
 		"If set, client-go will use watchers instead of informers (this decreases resiliency saving resources)")

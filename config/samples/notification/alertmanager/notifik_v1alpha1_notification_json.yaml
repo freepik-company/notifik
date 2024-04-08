@@ -24,14 +24,14 @@ spec:
       # The 'key' field admits vitamin Golang templating (well known from Helm)
       # The result of this field will be compared with 'value' for equality
       key: |
-        {{- $source := . -}}
+        {{- $source := .object -}}
         {{- printf "%s" $source.metadata.name -}}
       value: testing
 
   message:
     reason: "NameMatchedAlert"
     data: |
-      {{- $source := . -}}
+      {{- $source := .object -}}
       {{- $now := (now | date "2006-01-02T15:04:05Z07:00") -}}
       {{- $alertStructure := (printf `
         {
@@ -43,7 +43,7 @@ spec:
             },
             "labels": {
               "namespace": "%s",
-              "name": "%s",
+              "name": "%s"
             },
             "generatorURL": "string"
         }` $now $source.metadata.namespace $source.metadata.name) -}}

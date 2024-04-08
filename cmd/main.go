@@ -61,8 +61,10 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var configPath string
-	var eventsPerSecond int
 	var enableWatcherPoolCleaner bool
+	var watcherEventsPerSecond int
+	var informerSecondsToResync int
+	var useWatchers bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -74,9 +76,12 @@ func main() {
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.StringVar(&configPath, "config", "notifik.yaml", "The path to configuration file.")
-	flag.IntVar(&eventsPerSecond, "events-per-second", 20, "Amount of events processed per second (best effort)")
 	flag.BoolVar(&enableWatcherPoolCleaner, "enable-watcher-cleaner", false,
 		"If set, WatcherPool cleaner will be enabled for orphan watchers")
+	flag.IntVar(&watcherEventsPerSecond, "watcher-events-per-second", 20, "Amount of events processed per second by pure watchers (best effort)")
+	flag.IntVar(&informerSecondsToResync, "informer-seconds-to-resync", 300, "Amount of seconds to resync all the objects by informers")
+	flag.BoolVar(&useWatchers, "use-watchers", false,
+		"If set, client-go will use watchers instead of informers (this decreases resiliency saving resources)")
 
 	opts := zap.Options{
 		Development: true,
@@ -185,7 +190,13 @@ func main() {
 	workloadController := xyz.WorkloadController{
 		Client: mgr.GetClient(),
 		Options: xyz.WorkloadControllerOptions{
-			EventsPerSecond: eventsPerSecond,
+			UseWatchers: useWatchers,
+
+			// Options for pure Watchers
+			WatcherEventsPerSecond: watcherEventsPerSecond,
+
+			// Options for Informers
+			InformerSecondsToResync: informerSecondsToResync,
 		},
 	}
 

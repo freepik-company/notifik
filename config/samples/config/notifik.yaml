@@ -7,6 +7,6 @@ integrations:
 
   # (Optional) Configuration parameters to be able to connect with Alertmanager
   alertmanager:
-    url: "https://${TEST_USERNAME}:${TEST_PASSWORD}@webhook.site/d0fd5417-8931-476c-ae6e-c41eda3682af"
+    url: "https://${TEST_USERNAME}:${TEST_PASSWORD}@webhook.site/c78d856d-8cb3-41e8-ae1c-964c6e8bf304"
     headers:
       X-Scope-OrgID: freepik-company

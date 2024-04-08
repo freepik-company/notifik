@@ -19,17 +19,21 @@ package xyz
 import (
 	"context"
 	"fmt"
-	"freepik.com/notifik/internal/integrations"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/client-go/dynamic"
 	"slices"
 	"strings"
 	"time"
 
 	//
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/tools/cache"
+	clientgowatch "k8s.io/client-go/tools/watch"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -37,6 +41,7 @@ import (
 	//
 	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
 	"freepik.com/notifik/internal/globals"
+	"freepik.com/notifik/internal/integrations"
 	"freepik.com/notifik/internal/template"
 )
 
@@ -45,9 +50,14 @@ const (
 	// whether a watcher is started or not during watchers' reconciling process
 	secondsToCheckWatcherAck = 10 * time.Second
 
-	// secondsBetweenWatchersReconcilingRetries is the number of seconds to wait between
-	// loops in watchers' reconciling process (avoid the spam, mate)
-	secondsBetweenWatchersReconcilingRetries = 2 * time.Second
+	// secondsToReconcileWatchersAgain is the number of seconds to wait
+	// between the moment of launching watchers, and repeating this process
+	// (avoid the spam, mate)
+	secondsToReconcileWatchersAgain = 2 * time.Second
+
+	// secondsToResyncInformers is the number of seconds between syncing
+	// all the manifests and repeating this process
+	secondsToResyncInformers = 60 * 5 * time.Second
 
 	//
 	controllerContextFinishedMessage         = "xyz.WorkloadController finished by context"
@@ -69,9 +79,30 @@ const (
 	eventMessageGoTemplateError   = "Go templating reported failure for object message: %s"
 )
 
+// TemplateInjectedObject represents the object that will be injected on
+// Notification conditions and message on Go template evaluation stage
+type TemplateInjectedObject struct {
+	EventType string
+	Object    map[string]interface{}
+	ObjectOld map[string]interface{}
+}
+
+// WorkloadControllerOptions represents available options that can be passed
+// to WorkloadController on start
 type WorkloadControllerOptions struct {
+	UseWatchers bool
+
+	// Options for Watchers
+
 	// Events to be processed per second (best effort policy)
-	EventsPerSecond int
+	// when using pure watchers
+	WatcherEventsPerSecond int
+
+	// Options for Informers
+
+	// Seconds to wait until resync all the objects
+	// when using informers
+	InformerSecondsToResync int
 }
 
 // WorkloadController represents the controller that triggers parallel threads.
@@ -121,7 +152,11 @@ func (r *WorkloadController) reconcileWatchers(ctx context.Context) {
 		}
 
 		if !*resourceTypeWatcher.Started {
-			go r.watchType(ctx, resourceType)
+			if r.Options.UseWatchers {
+				go r.watchTypeWithWatcher(ctx, resourceType)
+			} else {
+				go r.watchTypeWithInformer(ctx, resourceType)
+			}
 
 			// TODO: Improve following logic in future versions
 
@@ -133,12 +168,12 @@ func (r *WorkloadController) reconcileWatchers(ctx context.Context) {
 		}
 
 		// Wait a bit to reduce the spam to machine resources
-		time.Sleep(secondsBetweenWatchersReconcilingRetries)
+		time.Sleep(secondsToReconcileWatchersAgain)
 	}
 }
 
 // watchType launches a watcher for a certain resource type, and trigger processing for each entering resource event
-func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.ResourceTypeName) {
+func (r *WorkloadController) watchTypeWithWatcher(ctx context.Context, watchedType globals.ResourceTypeName) {
 
 	logger := log.FromContext(ctx)
 
@@ -185,27 +220,35 @@ func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.
 		resourceSelector = globals.Application.KubeRawClient.Resource(resourceGVR).Namespace(namespace)
 	}
 
-	// Create a watcher for defined resources
-	resourceWatcher, err := resourceSelector.Watch(ctx, watchOptions)
+	// Create a watcher for defined resources (wrapped by a function for RetryWatcher)
+	var watchFunc cache.WatchFunc
+	watchFunc = func(options metav1.ListOptions) (watch.Interface, error) {
+		return resourceSelector.Watch(ctx, watchOptions)
+	}
+
+	// Enforce background reconciliation
+	resourceRetryWatcher, err := clientgowatch.NewRetryWatcher("1",
+		&cache.ListWatch{WatchFunc: watchFunc})
 	if err != nil {
 		logger.Info(fmt.Sprintf(kubeWatcherStartFailedError, string(watchedType), err))
 		return
 	}
-	defer resourceWatcher.Stop()
+
+	defer resourceRetryWatcher.Done()
 
 	// Listen to stop signal to kill this watcher just in case it's needed
-	go func(p watch.Interface) {
+	go func(p *clientgowatch.RetryWatcher) {
 		<-*(globals.Application.WatcherPool.Pool[watchedType].StopSignal)
-		p.Stop()
+		p.Done()
 		logger.Info(fmt.Sprintf(controllerWatcherKilledMessage, watchedType))
-	}(resourceWatcher)
+	}(resourceRetryWatcher)
 
 	// Calculate waiting time between loops to process N items per second
 	// Done this way to allow limitation of consumed resources
-	waitDuration := time.Second / time.Duration(r.Options.EventsPerSecond)
+	waitDuration := time.Second / time.Duration(r.Options.WatcherEventsPerSecond)
 
 	//
-	for WatchEvent := range resourceWatcher.ResultChan() {
+	for WatchEvent := range resourceRetryWatcher.ResultChan() {
 		// Extract the unstructured object from the event
 		objectMap, err := GetObjectMapFromRuntimeObject(&WatchEvent.Object)
 		if err != nil {
@@ -215,7 +258,7 @@ func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.
 
 		// Process event for watched object apart
 		// TODO: Probably we need to trigger processing into goroutines not to affect waiting calculation
-		err = r.processEvent(ctx, notificationList, objectMap, WatchEvent.Type)
+		err = r.processEvent(ctx, notificationList, WatchEvent.Type, objectMap)
 		if err != nil {
 			logger.Error(err, fmt.Sprintf(watchedObjectParseError, err))
 			continue
@@ -226,9 +269,112 @@ func (r *WorkloadController) watchType(ctx context.Context, watchedType globals.
 	}
 }
 
+// watchTypeInformer launches a watcher for a certain resource type, and trigger processing for each entering resource event
+func (r *WorkloadController) watchTypeWithInformer(ctx context.Context, watchedType globals.ResourceTypeName) {
+
+	logger := log.FromContext(ctx)
+
+	logger.Info(fmt.Sprintf(controllerWatcherStartedMessage, watchedType))
+
+	// Set ACK flag for watcher launching into the WatcherPool
+	*(globals.Application.WatcherPool.Pool[watchedType].Started) = true
+	defer func() {
+		*(globals.Application.WatcherPool.Pool[watchedType].Started) = false
+	}()
+
+	notificationList := globals.Application.WatcherPool.Pool[watchedType].NotificationList
+
+	// Extract GVR + Namespace + Name from watched type:
+	// {group}/{version}/{resource}/{namespace}/{name}
+	GVRNN := strings.Split(string(watchedType), "/")
+	if len(GVRNN) != 5 {
+		logger.Info(resourceWatcherGvrParsingError)
+		return
+	}
+	resourceGVR := schema.GroupVersionResource{
+		Group:    GVRNN[0],
+		Version:  GVRNN[1],
+		Resource: GVRNN[2],
+	}
+
+	// Include the namespace when defined by the user (used as filter)
+	namespace := corev1.NamespaceAll
+	if GVRNN[3] != "" {
+		namespace = GVRNN[3]
+	}
+
+	// Include the name when defined by the user (used as filter)
+	name := GVRNN[4]
+
+	var listOptionsFunc dynamicinformer.TweakListOptionsFunc = func(options *metav1.ListOptions) {}
+	if name != "" {
+		listOptionsFunc = func(options *metav1.ListOptions) {
+			options.FieldSelector = "metadata.name=" + name
+		}
+	}
+
+	// Listen to stop signal to kill this watcher just in case it's needed
+	var stopCh chan struct{}
+	go func() {
+		<-*(globals.Application.WatcherPool.Pool[watchedType].StopSignal)
+		stopCh <- struct{}{}
+		logger.Info(fmt.Sprintf(controllerWatcherKilledMessage, watchedType))
+	}()
+
+	// Define our informer TODO
+	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(globals.Application.KubeRawClient,
+		secondsToResyncInformers, namespace, listOptionsFunc)
+
+	// Optional TODO
+	//factory.WaitForCacheSync(stopCh)
+
+	// Create an informer. This is a special type of client-go watcher that includes
+	// mechanisms to hide disconnections, handle reconnections, and cache watched objects
+	informer := factory.ForResource(resourceGVR).Informer()
+
+	// Register functions to handle different types of events
+	handlers := cache.ResourceEventHandlerFuncs{
+
+		AddFunc: func(eventObject interface{}) {
+			convertedEventObject := eventObject.(*unstructured.Unstructured)
+
+			err := r.processEvent(ctx, notificationList, watch.Added, convertedEventObject.UnstructuredContent())
+			if err != nil {
+				logger.Error(err, fmt.Sprintf(watchedObjectParseError, err))
+			}
+		},
+		UpdateFunc: func(eventObjectOld, eventObject interface{}) {
+			convertedEventObjectOld := eventObjectOld.(*unstructured.Unstructured)
+			convertedEventObject := eventObject.(*unstructured.Unstructured)
+
+			err := r.processEvent(ctx, notificationList, watch.Modified,
+				convertedEventObject.UnstructuredContent(), convertedEventObjectOld.UnstructuredContent())
+			if err != nil {
+				logger.Error(err, fmt.Sprintf(watchedObjectParseError, err))
+			}
+		},
+		DeleteFunc: func(eventObject interface{}) {
+			convertedEventObject := eventObject.(*unstructured.Unstructured)
+
+			err := r.processEvent(ctx, notificationList, watch.Deleted, convertedEventObject.UnstructuredContent())
+			if err != nil {
+				logger.Error(err, fmt.Sprintf(watchedObjectParseError, err))
+			}
+		},
+	}
+
+	_, err := informer.AddEventHandler(handlers)
+	if err != nil {
+		logger.Error(err, "Error adding handling functions for events to an informer")
+		return
+	}
+
+	informer.Run(stopCh)
+}
+
 // processEvent process an event coming from a watched resource type.
 // It computes templating, evaluates conditions and decides whether to send a message for a given manifest
-func (r *WorkloadController) processEvent(ctx context.Context, notificationList *[]*notifikv1alpha1.Notification, object map[string]interface{}, eventType watch.EventType) (err error) {
+func (r *WorkloadController) processEvent(ctx context.Context, notificationList *[]*notifikv1alpha1.Notification, eventType watch.EventType, object ...map[string]interface{}) (err error) {
 	logger := log.FromContext(ctx)
 
 	// Process only certain event types
@@ -237,22 +383,27 @@ func (r *WorkloadController) processEvent(ctx context.Context, notificationList 
 	}
 
 	// Get object name and namespace for logging ease
-	objectBasicData, err := GetObjectBasicData(&object)
+	objectBasicData, err := GetObjectBasicData(&object[0])
 	if err != nil {
 		return err
 	}
 
-	// TODO: Show info about incoming object: GVRNN
-	// TODO: Include these logs only under a flag
-	// logger.WithValues(
-	// 	"object", fmt.Sprintf("%s/%s", objectBasicData["namespace"], objectBasicData["name"])).
-	// 	Info(eventReceivedMessage)
+	// Create the object that will be injected on
+	// Notification conditions/message on Golang template evaluation stage
+	templateInjectedObject := map[string]interface{}{}
 
+	templateInjectedObject["eventType"] = eventType
+	templateInjectedObject["object"] = object[0]
+	if eventType == watch.Modified {
+		templateInjectedObject["previousObject"] = object[1]
+	}
+
+	//
 	for _, notification := range *notificationList {
 
 		var conditionFlags []bool
 		for _, condition := range notification.Spec.Conditions {
-			parsedKey, err := template.EvaluateTemplate(condition.Key, object)
+			parsedKey, err := template.EvaluateTemplate(condition.Key, templateInjectedObject)
 			if err != nil {
 				logger.WithValues(
 					"notification", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
@@ -268,7 +419,7 @@ func (r *WorkloadController) processEvent(ctx context.Context, notificationList 
 			continue
 		}
 
-		parsedMessage, err := template.EvaluateTemplate(notification.Spec.Message.Data, object)
+		parsedMessage, err := template.EvaluateTemplate(notification.Spec.Message.Data, templateInjectedObject)
 		if err != nil {
 			logger.WithValues(
 				"notification", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),

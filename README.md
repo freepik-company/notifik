@@ -67,21 +67,30 @@ For instance, those related to integrations, that is how the messages are sent t
 ```yaml
 integrations:
 
-  # (Optional) Configuration parameters to be able to connect with generic webhooks
-  webhook:
-    url: "https://${WEBHOOK_TEST_USERNAME}:${WEBHOOK_TEST_PASSWORD}@webhook.site/98f1c771-bfaf-4c4f-81f6-f11c76684fcf"
-    headers:
-      X-Scope-OrgID: your-company
+  # (Optional) Configuration parameters to send generic webhooks
+  - name: webhook-sender
+    type: webhook
+    webhook:
+      url: "https://${WEBHOOK_TEST_USERNAME}:${WEBHOOK_TEST_PASSWORD}@webhook.site/c95d5e66-fb9d-4d03-8df5-47f87ede84d2"
+      verb: GET
+      headers:
+        X-Scope-OrgID: freepik-company
 
-  # (Optional) Configuration parameters to be able to connect with Alertmanager
-  alertmanager:
-    url: "https://${TEST_USERNAME}:${TEST_PASSWORD}@webhook.site/d0fd5417-8931-476c-ae6e-c41eda3682af"
-    headers:
-      X-Scope-OrgID: freepik-company
+  # (Optional) Configuration parameters to send generic webhooks with validators
+  - name: webhook-sender-with-validator
+    type: webhook
+    webhook:
+      url: "https://${WEBHOOK_TEST_USERNAME}:${WEBHOOK_TEST_PASSWORD}@webhook.site/c95d5e66-fb9d-4d03-8df5-47f87ede84d2"
+      verb: POST
+      validator: alertmanager
+      headers:
+        X-Scope-OrgID: freepik-company
 ```
 
 As you can see in the previous example, we expand environment variables passed to the controller for configuration file. 
 This way, you can manage credentials in your desired way (this applies to everything, headers included)
+
+> By the moment, only `alertmanager` validator is available
 
 ## RBAC
 
@@ -186,7 +195,8 @@ spec:
       value: testing
 
   message:
-    reason: "NameMatchedAlert"
+    integration:
+      name: webhook-sender
     data: |
       {{- $object := .object -}}
       {{- printf "Hi, I'm on fire: %s/%s" $object.metadata.namespace $object.metadata.name -}}

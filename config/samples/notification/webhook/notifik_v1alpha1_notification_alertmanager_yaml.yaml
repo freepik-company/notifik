@@ -1,0 +1,70 @@
+apiVersion: notifik.freepik.com/v1alpha1
+kind: Notification
+metadata:
+  labels:
+    app.kubernetes.io/name: notification
+    app.kubernetes.io/instance: notification-sample-alertmanager-yaml
+    app.kubernetes.io/part-of: notifik
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: notifik
+  name: notification-sample-alertmanager-yaml
+spec:
+  # Resource to be watched
+  watch:
+    group: ""
+    version: v1
+    resource: configmaps
+
+    # (Optional) It's possible to watch specific resources
+    # name: testing
+    # namespace: default
+
+  conditions:
+    - name: check-configmap-name
+      # The 'key' field admits vitamin Golang templating (well known from Helm)
+      # The result of this field will be compared with 'value' for equality
+      key: |
+        {{- $object := .object -}}
+        {{- printf "%s" $object.metadata.name -}}
+      value: testing
+
+  message:
+    integration:
+      name: webhook-sender-with-validator
+    data: |
+      {{- $evenType := .eventType | toString -}}
+      {{- $object := .object -}}
+      {{- $previousObject := .previousObject | default dict -}}
+      {{- $now := now | date "2006-01-02T15:04:05Z07:00" -}}
+
+      {{- $alertList := list -}}
+
+      {{- $annotations := dict
+          "eventType" $evenType
+          "previousObject" ($previousObject | toJson | b64enc)
+          "additionalProp1" "string"
+          "additionalProp2" "string"
+      -}}
+
+      {{- $labels := dict
+          "alertname" "NameMatchedAlert"
+          "namespace" $object.metadata.namespace
+          "name" $object.metadata.name
+      -}}
+
+      {{- $alert := dict 
+          "startsAt" $now
+          "annotations" $annotations
+          "labels" $labels
+          "generatorURL" "string-placeholder"
+      -}}
+
+      {{- $alertList = append $alertList $alert -}}
+
+      {{- $alertYAML := toYaml $alertList -}}
+      {{ $alertYAML }}
+
+
+
+
+

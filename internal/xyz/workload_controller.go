@@ -39,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	//
-	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
+	"freepik.com/notifik/api/v1alpha1"
 	"freepik.com/notifik/internal/globals"
 	"freepik.com/notifik/internal/integrations"
 	"freepik.com/notifik/internal/template"
@@ -368,7 +368,7 @@ func (r *WorkloadController) watchTypeWithInformer(ctx context.Context, watchedT
 
 // processEvent process an event coming from a watched resource type.
 // It computes templating, evaluates conditions and decides whether to send a message for a given manifest
-func (r *WorkloadController) processEvent(ctx context.Context, notificationList *[]*notifikv1alpha1.Notification, eventType watch.EventType, object ...map[string]interface{}) (err error) {
+func (r *WorkloadController) processEvent(ctx context.Context, notificationList *[]*v1alpha1.Notification, eventType watch.EventType, object ...map[string]interface{}) (err error) {
 	logger := log.FromContext(ctx)
 
 	// Process only certain event types
@@ -428,9 +428,12 @@ func (r *WorkloadController) processEvent(ctx context.Context, notificationList 
 			Info(eventConditionsTriggerIntegrationsMessage)
 
 		// Send the message through integrations
-		err = integrations.SendMessage(ctx, notification.Spec.Message.Reason, parsedMessage)
+		err = integrations.SendMessage(ctx, notification.Spec.Message.Integration.Name, parsedMessage)
 		if err != nil {
-			logger.Info(fmt.Sprintf(integrationsSendMessageError, err))
+			logger.WithValues(
+				"notification", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
+				"object", fmt.Sprintf("%s/%s", objectBasicData["namespace"], objectBasicData["name"])).
+				Info(fmt.Sprintf(integrationsSendMessageError, err))
 		}
 	}
 

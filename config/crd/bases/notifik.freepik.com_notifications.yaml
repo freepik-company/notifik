@@ -66,11 +66,16 @@ spec:
                 properties:
                   data:
                     type: string
-                  reason:
-                    type: string
+                  integration:
+                    properties:
+                      name:
+                        type: string
+                    required:
+                    - name
+                    type: object
                 required:
                 - data
-                - reason
+                - integration
                 type: object
               watch:
                 description: TODO

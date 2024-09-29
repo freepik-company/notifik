@@ -29,28 +29,33 @@ spec:
       value: testing
 
   message:
-    reason: "NameMatchedAlert"
+    integration:
+      name: webhook-sender-with-validator-other
     data: |
-      {{- $evenType := (.eventType | toString) -}}
+      {{- $evenType := .eventType | toString -}}
       {{- $object := .object -}}
-      {{- $previousObject := (.previousObject | default dict) -}}
-      
-      {{- $now := (now | date "2006-01-02T15:04:05Z07:00") -}}
-      
-      {{- $alertStructure := (printf `
-        {
-            "startsAt": "%s",
-            "annotations": {
-              "eventType": "%s",
-              "previousObject": "%s",
-              "additionalProp1": "string",
-              "additionalProp2": "string",
-              "additionalProp3": "string"
-            },
-            "labels": {
-              "namespace": "%s",
-              "name": "%s"
-            },
-            "generatorURL": "string"
-        }` $now $evenType ($previousObject| toJson | b64enc) $object.metadata.namespace $object.metadata.name) -}}
-      {{- fromJson $alertStructure | toJson -}}
+      {{- $previousObject := .previousObject | default dict -}}
+      {{- $now := now | date "2006-01-02T15:04:05Z07:00" -}}
+
+      {{- $alertList := list -}}
+
+      {{- $alert := dict 
+          "startsAt" $now
+          "annotations" (dict
+            "eventType" $evenType
+            "previousObject" ($previousObject | toJson | b64enc)
+            "additionalProp1" "string"
+            "additionalProp2" "string"
+          )
+          "labels" (dict
+            "alertname" "NameMatchedAlert"
+            "namespace" $object.metadata.namespace
+            "name" $object.metadata.name
+          )
+          "generatorURL" "string-placeholder"
+      -}}
+
+      {{- $alertList = append $alertList $alert -}}
+
+      {{- $alertJSON := toJson $alertList -}}
+      {{ $alertJSON }}

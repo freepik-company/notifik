@@ -2,9 +2,13 @@ package globals
 
 import (
 	"context"
-	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
-	"k8s.io/client-go/dynamic"
 	"sync"
+
+	//
+	"k8s.io/client-go/dynamic"
+
+	//
+	"freepik.com/notifik/api/v1alpha1"
 )
 
 // TODO
@@ -24,7 +28,7 @@ type ResourceTypeWatcherT struct {
 	StopSignal *chan bool
 
 	//
-	NotificationList *[]*notifikv1alpha1.Notification
+	NotificationList *[]*v1alpha1.Notification
 }
 
 type WatcherPoolT struct {
@@ -40,7 +44,7 @@ type applicationT struct {
 	Context context.Context
 
 	// Configuration TODO
-	Configuration notifikv1alpha1.ConfigurationT
+	Configuration v1alpha1.ConfigurationT
 
 	// KubeRawClient TODO
 	KubeRawClient *dynamic.DynamicClient

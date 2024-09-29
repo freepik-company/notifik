@@ -4,7 +4,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	//
-	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
+	"freepik.com/notifik/api/v1alpha1"
 )
 
 const (
@@ -66,7 +66,7 @@ func NewNotificationCondition(condType string, status metav1.ConditionStatus, re
 }
 
 // GetNotificationCondition returns the condition with the provided type.
-func GetNotificationCondition(patch *notifikv1alpha1.Notification, condType string) *metav1.Condition {
+func GetNotificationCondition(patch *v1alpha1.Notification, condType string) *metav1.Condition {
 
 	for i, v := range patch.Status.Conditions {
 		if v.Type == condType {
@@ -77,7 +77,7 @@ func GetNotificationCondition(patch *notifikv1alpha1.Notification, condType stri
 }
 
 // UpdateNotificationCondition update or create a new condition inside the status of the CR
-func UpdateNotificationCondition(patch *notifikv1alpha1.Notification, condition *metav1.Condition) {
+func UpdateNotificationCondition(patch *v1alpha1.Notification, condition *metav1.Condition) {
 
 	// Get the condition
 	currentCondition := GetNotificationCondition(patch, condition.Type)

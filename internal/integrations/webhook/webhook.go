@@ -3,60 +3,76 @@ package webhook
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	//
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	//
-	"freepik.com/notifik/internal/globals"
+	"freepik.com/notifik/api/v1alpha1"
 )
 
 const (
 	//
-	HttpEventPattern             = `{"reason":"%s","data":"%s","timestamp":"%s"}`
-	HttpEventVerb                = "POST"
-	HttpNotificationReasonHeader = "X-Notification-Reason"
+	HttpEventPattern = `{"data":"%s","timestamp":"%s"}`
 
 	//
+	ValidatorNotFoundErrorMessage   = "validator %s not found"
+	ValidationFailedErrorMessage    = "validation failed: %s"
 	HttpRequestCreationErrorMessage = "error creating http request: %s"
 	HttpRequestSendingErrorMessage  = "error sending http request: %s"
 )
 
-func SendMessage(ctx context.Context, reason string, data string) (err error) {
-	logger := log.FromContext(ctx)
-	_ = logger
+var (
+	// validatorsMap is a map of integration names and their respective validation functions
+	validatorsMap = map[string]func(data string) (result bool, hint string, err error){
+		"alertmanager": ValidateAlertmanager,
+	}
+)
+
+func SendMessage(ctx context.Context, params *v1alpha1.WebhookT, data string) (err error) {
+
+	// Check if the webhook has a validator and execute it when available
+	if params.Validator != "" {
+
+		_, validatorFound := validatorsMap[params.Validator]
+		if !validatorFound {
+			return fmt.Errorf(ValidatorNotFoundErrorMessage, params.Validator)
+		}
+
+		//
+		validatorResult, validatorHint, err := validatorsMap[params.Validator](data)
+		if err != nil {
+			return fmt.Errorf(ValidationFailedErrorMessage, err.Error())
+		}
+
+		if !validatorResult {
+			return fmt.Errorf(ValidationFailedErrorMessage, validatorHint)
+		}
+	}
 
 	httpClient := &http.Client{}
 
-	webhookConfig := globals.Application.Configuration.Integrations.Webhook
-
 	// Create the request
-	httpRequest, err := http.NewRequest(HttpEventVerb, webhookConfig.Url, nil)
+	httpRequest, err := http.NewRequest(params.Verb, params.Url, nil)
 	if err != nil {
-		return errors.New(fmt.Sprintf(HttpRequestCreationErrorMessage, err))
+		return fmt.Errorf(HttpRequestCreationErrorMessage, err)
 	}
 
 	// Add headers to the request
-	for headerKey, headerValue := range webhookConfig.Headers {
+	for headerKey, headerValue := range params.Headers {
 		httpRequest.Header.Set(headerKey, headerValue)
 	}
 
-	httpRequest.Header.Set(HttpNotificationReasonHeader, reason)
-
 	// Add data to the request
-	payload := []byte(fmt.Sprintf(HttpEventPattern, reason, data, time.Now().In(time.Local)))
+	payload := []byte(data)
+
 	httpRequest.Body = io.NopCloser(bytes.NewBuffer(payload))
 	httpRequest.Header.Set("Content-Type", "application/json")
 
 	// Send HTTP request
 	httpResponse, err := httpClient.Do(httpRequest)
 	if err != nil {
-		return errors.New(fmt.Sprintf(HttpRequestSendingErrorMessage, err))
+		return fmt.Errorf(HttpRequestSendingErrorMessage, err)
 	}
 	defer httpResponse.Body.Close()
 

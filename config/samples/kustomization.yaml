@@ -5,7 +5,8 @@ resources:
   - secret.yaml
 
   #
-  - notification/alertmanager/notifik_v1alpha1_notification_yaml.yaml
-  - notification/alertmanager/notifik_v1alpha1_notification_json.yaml
+  - notification/webhook/notifik_v1alpha1_notification_alertmanager_json.yaml
+  - notification/webhook/notifik_v1alpha1_notification_alertmanager_yaml.yaml
+  - notification/webhook/notifik_v1alpha1_notification_simple.yaml
 
   #+kubebuilder:scaffold:manifestskustomizesamples

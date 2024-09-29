@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	//
-	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
+	"freepik.com/notifik/api/v1alpha1"
 )
 
 const (
@@ -77,7 +77,7 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	_ = logger
 
 	// 1. Get the content of the notification
-	notificationManifest := &notifikv1alpha1.Notification{}
+	notificationManifest := &v1alpha1.Notification{}
 	err = r.Get(ctx, req.NamespacedName, notificationManifest)
 
 	// 2. Check the existence inside the cluster
@@ -165,6 +165,6 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *NotificationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&notifikv1alpha1.Notification{}).
+		For(&v1alpha1.Notification{}).
 		Complete(r)
 }

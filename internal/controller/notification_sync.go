@@ -3,12 +3,13 @@ package controller
 import (
 	"context"
 	"strings"
+
 	//
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	//
-	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
+	"freepik.com/notifik/api/v1alpha1"
 	"freepik.com/notifik/internal/globals"
 )
 
@@ -24,7 +25,7 @@ const (
 )
 
 // ReconcileNotification call Kubernetes API to actually Notification the resource
-func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, eventType watch.EventType, notificationManifest *notifikv1alpha1.Notification) (err error) {
+func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, eventType watch.EventType, notificationManifest *v1alpha1.Notification) (err error) {
 	logger := log.FromContext(ctx)
 
 	watchedTypeString := strings.Join([]string{

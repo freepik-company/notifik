@@ -3,11 +3,11 @@ kind: Notification
 metadata:
   labels:
     app.kubernetes.io/name: notification
-    app.kubernetes.io/instance: notification-sample-alertmanager-yaml
+    app.kubernetes.io/instance: notification-sample-simple
     app.kubernetes.io/part-of: notifik
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: notifik
-  name: notification-sample-alertmanager-yaml
+  name: notification-sample-simple
 spec:
   # Resource to be watched
   watch:
@@ -19,6 +19,7 @@ spec:
     # name: testing
     # namespace: default
 
+
   conditions:
     - name: check-configmap-name
       # The 'key' field admits vitamin Golang templating (well known from Helm)
@@ -29,22 +30,8 @@ spec:
       value: testing
 
   message:
-    reason: "NameMatchedAlert"
+    integration:
+      name: webhook-sender
     data: |
-      {{- $evenType := (.eventType | toString) -}}
       {{- $object := .object -}}
-      {{- $previousObject := (.previousObject | default dict) -}}
-      
-      {{- $now := (now | date "2006-01-02T15:04:05Z07:00") -}}
-      {{- $alertStructure := (printf `
-        startsAt: "%s"
-        annotations:
-          eventType: %s,
-          previousObject: %s,
-          additionalProp1: string
-          additionalProp2: string
-        labels:
-          namespace: %s
-          name: %s
-        generatorURL: string-placeholder` $now $evenType ($previousObject | toJson | b64enc) $object.metadata.namespace $object.metadata.name) -}}
-      {{- fromYaml $alertStructure | toJson -}}
+      {{- printf "Hi, I'm on fire with the alert 'NameMatchedAlert': %s/%s" $object.metadata.namespace $object.metadata.name -}}

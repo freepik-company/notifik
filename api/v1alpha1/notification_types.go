@@ -36,10 +36,14 @@ type NotificationCondition struct {
 	Value string `json:"value"`
 }
 
+type NotificationIntegration struct {
+	Name string `json:"name"`
+}
+
 // TODO
 type NotificationMessage struct {
-	Reason string `json:"reason"`
-	Data   string `json:"data"`
+	Integration NotificationIntegration `json:"integration"`
+	Data        string                  `json:"data"`
 }
 
 // NotificationSpec defines the desired state of Notification

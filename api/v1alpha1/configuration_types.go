@@ -2,23 +2,20 @@ package v1alpha1
 
 // ConfigurationT TODO
 type ConfigurationT struct {
-	Integrations IntegrationsT `yaml:"integrations"`
+	Integrations []IntegrationT `yaml:"integrations"`
 }
 
-// IntegrationsT TODO
-type IntegrationsT struct {
-	Alertmanager AlertmanagerT `yaml:"alertmanager,omitempty"`
-	Webhook      WebhookT      `yaml:"webhook,omitempty"`
-}
-
-// AlertmanagerT TODO
-type AlertmanagerT struct {
-	Url     string            `yaml:"url"`
-	Headers map[string]string `yaml:"headers,omitempty"`
+// IntegrationT TODO
+type IntegrationT struct {
+	Name    string   `yaml:"name"`
+	Type    string   `yaml:"type"`
+	Webhook WebhookT `yaml:"webhook,omitempty"`
 }
 
 // WebhookT TODO
 type WebhookT struct {
-	Url     string            `yaml:"url"`
-	Headers map[string]string `yaml:"headers,omitempty"`
+	Url       string            `yaml:"url"`
+	Verb      string            `yaml:"verb"`
+	Headers   map[string]string `yaml:"headers,omitempty"`
+	Validator string            `yaml:"validator,omitempty"`
 }

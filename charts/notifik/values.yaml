@@ -139,3 +139,16 @@ controller:
       enabled: false
       type: ClusterIP
       port: 9090
+
+# Define some extra resources to be created
+# This section is useful when you need ExternalResource or Secrets, etc.
+extraResources: []
+  # - apiVersion: v1
+  #   kind: Secret
+  #   metadata:
+  #     name: example-secret
+  #     labels: {}
+  #   type: Opaque
+  #   stringData:
+  #     username: admin
+  #     password: mypassword

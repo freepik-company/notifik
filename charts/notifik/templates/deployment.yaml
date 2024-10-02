@@ -67,10 +67,12 @@ spec:
           {{- end }}
 
           {{- with .Values.controller.env }}
+          env:
           {{ toYaml . | nindent 10 }}
           {{- end }}
 
           {{- with .Values.controller.envFrom }}
+          envFrom:
           {{ toYaml . | nindent 10 }}
           {{- end }}
 

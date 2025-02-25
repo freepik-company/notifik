@@ -1,4 +1,4 @@
-package controller
+package notifications
 
 import (
 	"context"

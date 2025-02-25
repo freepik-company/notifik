@@ -19,7 +19,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"freepik.com/notifik/internal/xyz"
+
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
@@ -41,7 +41,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
-	"freepik.com/notifik/internal/controller"
+	"freepik.com/notifik/internal/controller/notifications"
+	"freepik.com/notifik/internal/controller/watchers"
 	"freepik.com/notifik/internal/globals"
 	// +kubebuilder:scaffold:imports
 )
@@ -232,11 +233,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.NotificationReconciler{
+	if err = (&notifications.NotificationReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 
-		Options: controller.NotificationControllerOptions{
+		Options: notifications.NotificationControllerOptions{
 			EnableWatcherPoolCleaner: enableWatcherPoolCleaner,
 		},
 	}).SetupWithManager(mgr); err != nil {
@@ -281,9 +282,9 @@ func main() {
 	}
 
 	// Init secondary controller to process coming events
-	workloadController := xyz.WorkloadController{
+	workloadController := watchers.WatchersController{
 		Client: mgr.GetClient(),
-		Options: xyz.WorkloadControllerOptions{
+		Options: watchers.WatchersControllerOptions{
 			// Options for Informers
 			InformerDurationToResync: informerDurationToResync,
 		},

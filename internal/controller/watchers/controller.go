@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package xyz
+package watchers
 
 import (
 	"context"
@@ -75,9 +75,9 @@ const (
 	eventMessageGoTemplateError   = "Go templating reported failure for object message: %s"
 )
 
-// WorkloadControllerOptions represents available options that can be passed
-// to WorkloadController on start
-type WorkloadControllerOptions struct {
+// WatchersControllerOptions represents available options that can be passed
+// to WatchersController on start
+type WatchersControllerOptions struct {
 	// Options for Informers
 
 	// Duration to wait until resync all the objects
@@ -85,19 +85,19 @@ type WorkloadControllerOptions struct {
 	InformerDurationToResync time.Duration
 }
 
-// WorkloadController represents the controller that triggers parallel threads.
+// WatchersController represents the controller that triggers parallel threads.
 // These threads process coming events against the conditions defined in Notification CRs
 // Each thread is a watcher in charge of a group of resources GVRNN (Group + Version + Resource + Namespace + Name)
-type WorkloadController struct {
+type WatchersController struct {
 	Client client.Client
 
 	//
-	Options WorkloadControllerOptions
+	Options WatchersControllerOptions
 }
 
 // Start launches the XYZ.WorkloadController and keeps it alive
 // It kills the controller on application context death, and rerun the process when failed
-func (r *WorkloadController) Start(ctx context.Context) {
+func (r *WatchersController) Start(ctx context.Context) {
 	logger := log.FromContext(ctx)
 
 	for {
@@ -113,7 +113,7 @@ func (r *WorkloadController) Start(ctx context.Context) {
 
 // reconcileWatchers launches a parallel process that launches
 // watchers for resource types defined into the WatcherPool
-func (r *WorkloadController) reconcileWatchers(ctx context.Context) {
+func (r *WatchersController) reconcileWatchers(ctx context.Context) {
 	logger := log.FromContext(ctx)
 
 	for resourceType, resourceTypeWatcher := range globals.Application.WatcherPool.Pool {
@@ -149,7 +149,7 @@ func (r *WorkloadController) reconcileWatchers(ctx context.Context) {
 }
 
 // watchTypeInformer launches a watcher for a certain resource type, and trigger processing for each entering resource event
-func (r *WorkloadController) watchTypeWithInformer(ctx context.Context, watchedType globals.ResourceTypeName) {
+func (r *WatchersController) watchTypeWithInformer(ctx context.Context, watchedType globals.ResourceTypeName) {
 
 	logger := log.FromContext(ctx)
 
@@ -254,7 +254,7 @@ func (r *WorkloadController) watchTypeWithInformer(ctx context.Context, watchedT
 
 // processEvent process an event coming from a watched resource type.
 // It computes templating, evaluates conditions and decides whether to send a message for a given manifest
-func (r *WorkloadController) processEvent(ctx context.Context, notificationList *[]*v1alpha1.Notification, eventType watch.EventType, object ...map[string]interface{}) (err error) {
+func (r *WatchersController) processEvent(ctx context.Context, notificationList *[]*v1alpha1.Notification, eventType watch.EventType, object ...map[string]interface{}) (err error) {
 	logger := log.FromContext(ctx)
 
 	// Process only certain event types

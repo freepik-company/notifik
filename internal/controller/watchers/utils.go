@@ -1,4 +1,4 @@
-package xyz
+package watchers
 
 import (
 	"errors"

@@ -5,7 +5,7 @@
 domain: freepik.com
 layout:
 - go.kubebuilder.io/v4
-projectName: notifik-next
+projectName: notifik
 repo: freepik.com/notifik
 resources:
 - api:

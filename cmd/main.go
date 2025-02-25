@@ -282,7 +282,7 @@ func main() {
 	}
 
 	// Init secondary controller to process coming events
-	workloadController := watchers.WatchersController{
+	watchersController := watchers.WatchersController{
 		Client: mgr.GetClient(),
 		Options: watchers.WatchersControllerOptions{
 			// Options for Informers
@@ -290,8 +290,8 @@ func main() {
 		},
 	}
 
-	setupLog.Info("starting workload controller")
-	go workloadController.Start(globals.Application.Context)
+	setupLog.Info("starting watchers controller")
+	go watchersController.Start(globals.Application.Context)
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(globals.Application.Context); err != nil {

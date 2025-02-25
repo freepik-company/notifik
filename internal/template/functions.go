@@ -3,11 +3,12 @@ package template
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 	"strings"
 	"text/template"
 
 	"github.com/BurntSushi/toml"
-	"github.com/Masterminds/sprig"
+	"github.com/Masterminds/sprig/v3"
 	"sigs.k8s.io/yaml"
 )
 
@@ -55,6 +56,9 @@ func GetFunctionsMap() template.FuncMap {
 		"toJson":        toJSON,
 		"fromJson":      fromJSON,
 		"fromJsonArray": fromJSONArray,
+
+		// Extended funcs
+		"logPrintf": logPrintf,
 	}
 
 	for k, v := range extra {
@@ -62,6 +66,14 @@ func GetFunctionsMap() template.FuncMap {
 	}
 
 	return f
+}
+
+// logPrintf is the equivalent of printf function.
+// It takes a format-string and several items as arguments and throw the result by logs.
+// It returns an empty string as returning something is required in Go template's func mapping
+func logPrintf(format string, v ...interface{}) string {
+	log.Printf(format, v...)
+	return ""
 }
 
 // toYAML takes an interface, marshals it to yaml, and returns a string. It will

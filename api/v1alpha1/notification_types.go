@@ -1,5 +1,5 @@
 /*
-Copyright 2024.
+Copyright 2025.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -60,12 +60,12 @@ type NotificationStatus struct {
 	Conditions []metav1.Condition `json:"conditions"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:resource:scope=Namespaced,categories={notifications}
-//+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:scope=Namespaced,categories={notifications}
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
 
-// Notification is the Schema for the notifications API
+// Notification is the Schema for the notifications API.
 type Notification struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -74,9 +74,9 @@ type Notification struct {
 	Status NotificationStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// NotificationList contains a list of Notification
+// NotificationList contains a list of Notification.
 type NotificationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

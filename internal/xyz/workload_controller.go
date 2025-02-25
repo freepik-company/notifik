@@ -27,14 +27,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
-	clientgowatch "k8s.io/client-go/tools/watch"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -82,14 +78,6 @@ const (
 // WorkloadControllerOptions represents available options that can be passed
 // to WorkloadController on start
 type WorkloadControllerOptions struct {
-	UseWatchers bool
-
-	// Options for Watchers
-
-	// Events to be processed per second (best effort policy)
-	// when using pure watchers
-	WatcherEventsPerSecond int
-
 	// Options for Informers
 
 	// Duration to wait until resync all the objects
@@ -144,11 +132,7 @@ func (r *WorkloadController) reconcileWatchers(ctx context.Context) {
 		}
 
 		if !*resourceTypeWatcher.Started {
-			if r.Options.UseWatchers {
-				go r.watchTypeWithWatcher(ctx, resourceType)
-			} else {
-				go r.watchTypeWithInformer(ctx, resourceType)
-			}
+			go r.watchTypeWithInformer(ctx, resourceType)
 
 			// TODO: Improve following logic in future versions
 
@@ -161,104 +145,6 @@ func (r *WorkloadController) reconcileWatchers(ctx context.Context) {
 
 		// Wait a bit to reduce the spam to machine resources
 		time.Sleep(secondsToReconcileWatchersAgain)
-	}
-}
-
-// watchType launches a watcher for a certain resource type, and trigger processing for each entering resource event
-func (r *WorkloadController) watchTypeWithWatcher(ctx context.Context, watchedType globals.ResourceTypeName) {
-
-	logger := log.FromContext(ctx)
-
-	logger.Info(fmt.Sprintf(controllerWatcherStartedMessage, watchedType))
-
-	// Set ACK flag for watcher launching into the WatcherPool
-	*(globals.Application.WatcherPool.Pool[watchedType].Started) = true
-	defer func() {
-		*(globals.Application.WatcherPool.Pool[watchedType].Started) = false
-	}()
-
-	notificationList := globals.Application.WatcherPool.Pool[watchedType].NotificationList
-
-	// Extract GVR + Namespace + Name from watched type:
-	// {group}/{version}/{resource}/{namespace}/{name}
-	GVRNN := strings.Split(string(watchedType), "/")
-	if len(GVRNN) != 5 {
-		logger.Info(resourceWatcherGvrParsingError)
-		return
-	}
-	resourceGVR := schema.GroupVersionResource{
-		Group:    GVRNN[0],
-		Version:  GVRNN[1],
-		Resource: GVRNN[2],
-	}
-
-	namespace := GVRNN[3]
-	name := GVRNN[4]
-
-	//
-	watchOptions := metav1.ListOptions{}
-
-	// Include the name when defined by the user
-	if name != "" {
-		// DOCS: Alternative way to do the same
-		// FieldSelector: fmt.Sprintf("metadata.name=%s", name),
-		watchOptions.FieldSelector = fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()
-	}
-
-	// Include the namespace when defined by the user
-	var resourceSelector dynamic.ResourceInterface
-	resourceSelector = globals.Application.KubeRawClient.Resource(resourceGVR)
-	if namespace != "" {
-		resourceSelector = globals.Application.KubeRawClient.Resource(resourceGVR).Namespace(namespace)
-	}
-
-	// Create a watcher for defined resources (wrapped by a function for RetryWatcher)
-	var watchFunc cache.WatchFunc
-	watchFunc = func(options metav1.ListOptions) (watch.Interface, error) {
-		return resourceSelector.Watch(ctx, watchOptions)
-	}
-
-	// Enforce background reconciliation
-	resourceRetryWatcher, err := clientgowatch.NewRetryWatcher("1",
-		&cache.ListWatch{WatchFunc: watchFunc})
-	if err != nil {
-		logger.Info(fmt.Sprintf(kubeWatcherStartFailedError, string(watchedType), err))
-		return
-	}
-
-	defer resourceRetryWatcher.Done()
-
-	// Listen to stop signal to kill this watcher just in case it's needed
-	go func(p *clientgowatch.RetryWatcher) {
-		<-*(globals.Application.WatcherPool.Pool[watchedType].StopSignal)
-		p.Done()
-		p.Stop()
-		logger.Info(fmt.Sprintf(controllerWatcherKilledMessage, watchedType))
-	}(resourceRetryWatcher)
-
-	// Calculate waiting time between loops to process N items per second
-	// Done this way to allow limitation of consumed resources
-	waitDuration := time.Second / time.Duration(r.Options.WatcherEventsPerSecond)
-
-	//
-	for WatchEvent := range resourceRetryWatcher.ResultChan() {
-		// Extract the unstructured object from the event
-		objectMap, err := GetObjectMapFromRuntimeObject(&WatchEvent.Object)
-		if err != nil {
-			logger.Error(err, fmt.Sprintf(runtimeObjectConversionError, err))
-			continue
-		}
-
-		// Process event for watched object apart
-		// TODO: Probably we need to trigger processing into goroutines not to affect waiting calculation
-		err = r.processEvent(ctx, notificationList, WatchEvent.Type, objectMap)
-		if err != nil {
-			logger.Error(err, fmt.Sprintf(watchedObjectParseError, err))
-			continue
-		}
-
-		//
-		time.Sleep(waitDuration)
 	}
 }
 

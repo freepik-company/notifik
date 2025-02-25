@@ -1,5 +1,5 @@
 /*
-Copyright 2024.
+Copyright 2025.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"freepik.com/notifik/api/v1alpha1"
+	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
 )
 
 var _ = Describe("Notification Controller", func() {
@@ -40,13 +40,13 @@ var _ = Describe("Notification Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		notification := &v1alpha1.Notification{}
+		notification := &notifikv1alpha1.Notification{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind Notification")
 			err := k8sClient.Get(ctx, typeNamespacedName, notification)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &v1alpha1.Notification{
+				resource := &notifikv1alpha1.Notification{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -59,7 +59,7 @@ var _ = Describe("Notification Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &v1alpha1.Notification{}
+			resource := &notifikv1alpha1.Notification{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 

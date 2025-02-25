@@ -105,8 +105,5 @@ func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, even
 		globals.CleanWatcherPool()
 	}
 
-	// TODO: DELETE. DEBUG PURPOSES
-	// corelog.Printf("notification controller loop checkpoint. event type: %v", eventType)
-
 	return nil
 }

@@ -19,6 +19,7 @@ package watchers
 import (
 	"context"
 	"fmt"
+
 	"slices"
 	"strings"
 	"time"
@@ -34,10 +35,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	//
-	"freepik.com/notifik/api/v1alpha1"
 	"freepik.com/notifik/internal/globals"
 	"freepik.com/notifik/internal/integrations"
+	notificationsManager "freepik.com/notifik/internal/manager/notifications"
+	watchersManager "freepik.com/notifik/internal/manager/watchers"
 	"freepik.com/notifik/internal/template"
 )
 
@@ -56,17 +57,13 @@ const (
 	secondsToResyncInformers = 60 * 5 * time.Second
 
 	//
-	controllerContextFinishedMessage         = "xyz.WorkloadController finished by context"
-	controllerWatcherStartedMessage          = "Watcher for '%s' has been started"
-	controllerWatcherKilledMessage           = "Watcher for resource type '%s' killed by StopSignal"
-	controllerWatcherLaunchingBlockedMessage = "Watcher for '%s' is blocked and will not be started"
+	controllerContextFinishedMessage = "WatcherController finished by context"
+	controllerWatcherStartedMessage  = "Watcher for '%s' has been started"
+	controllerWatcherKilledMessage   = "Watcher for resource type '%s' killed by StopSignal"
 
 	eventConditionsTriggerIntegrationsMessage = "Object has met conditions. Integrations will be triggered"
-	eventReceivedMessage                      = "Object event received"
 
-	kubeWatcherStartFailedError    = "Impossible to watch resource type '%s'. RBAC issues?: %s"
 	watchedObjectParseError        = "Impossible to process watched object: %s"
-	runtimeObjectConversionError   = "Failed to parse object: %v"
 	resourceWatcherLaunchingError  = "Impossible to start watcher for resource type: %s"
 	integrationsSendMessageError   = "Impossible to send the message to some integration: %s"
 	resourceWatcherGvrParsingError = "Failed to parse GVR from resourceType. Does it look like {group}/{version}/{resource}?"
@@ -75,14 +72,18 @@ const (
 	eventMessageGoTemplateError   = "Go templating reported failure for object message: %s"
 )
 
-// WatchersControllerOptions represents available options that can be passed
-// to WatchersController on start
+// WatchersControllerOptions represents available options that can be passed to WatchersController on start
 type WatchersControllerOptions struct {
-	// Options for Informers
-
 	// Duration to wait until resync all the objects
-	// when using informers
 	InformerDurationToResync time.Duration
+}
+
+type WatchersControllerDependencies struct {
+	Context *context.Context
+
+	//
+	NotificationsManager *notificationsManager.NotificationsManager
+	WatchersManager      *watchersManager.WatchersManager
 }
 
 // WatchersController represents the controller that triggers parallel threads.
@@ -91,81 +92,115 @@ type WatchersControllerOptions struct {
 type WatchersController struct {
 	Client client.Client
 
-	//
-	Options WatchersControllerOptions
+	Options      WatchersControllerOptions
+	Dependencies WatchersControllerDependencies
 }
 
-// Start launches the XYZ.WorkloadController and keeps it alive
-// It kills the controller on application context death, and rerun the process when failed
-func (r *WatchersController) Start(ctx context.Context) {
-	logger := log.FromContext(ctx)
+// watchersCleanerWorker review the resource types of Notifications registry in the background.
+// It disables the watchers that are not needed and delete them from watchers registry
+// This function is intended to be used as goroutine
+func (r *WatchersController) watchersCleanerWorker() {
+	logger := log.FromContext(*r.Dependencies.Context)
+	logger.Info("Starting watchers cleaner worker")
 
 	for {
+		//
+		referentCandidates := r.Dependencies.NotificationsManager.GetRegisteredResourceTypes()
+		evaluableCandidates := r.Dependencies.WatchersManager.GetRegisteredResourceTypes()
+
+		//
+		//logger.WithValues("types", referentCandidates).
+		//	Debug("Current resource types in Notification registry")
+		//logger.WithValues("types", evaluableCandidates).
+		//	Debug("Current resource types in watchers registry")
+
+		for _, resourceType := range evaluableCandidates {
+			if !slices.Contains(referentCandidates, resourceType) {
+				err := r.Dependencies.WatchersManager.DisableWatcher(resourceType)
+				if err != nil {
+					logger.WithValues("resourceType", resourceType).
+						Info("Failed disabling watcher")
+				}
+			}
+		}
+
+		time.Sleep(5 * time.Second)
+	}
+}
+
+// Start launches the WatchersController and keeps it alive
+// It kills the controller on application's context death, and rerun the process when failed
+func (r *WatchersController) Start() {
+	logger := log.FromContext(*r.Dependencies.Context)
+
+	// Start cleaner for dead watchers
+	go r.watchersCleanerWorker()
+
+	// Keep your controller alive
+	for {
 		select {
-		case <-ctx.Done():
+		case <-(*r.Dependencies.Context).Done():
 			logger.Info(controllerContextFinishedMessage)
 			return
 		default:
-			r.reconcileWatchers(ctx)
+			r.reconcileWatchers()
 		}
 	}
 }
 
-// reconcileWatchers launches a parallel process that launches
-// watchers for resource types defined into the WatcherPool
-func (r *WatchersController) reconcileWatchers(ctx context.Context) {
-	logger := log.FromContext(ctx)
+// reconcileWatchers checks each registered resource type and triggers watchers
+// for those that are not already started.
+func (r *WatchersController) reconcileWatchers() {
+	logger := log.FromContext(*r.Dependencies.Context)
 
-	for resourceType, resourceTypeWatcher := range globals.Application.WatcherPool.Pool {
+	for _, resourceType := range r.Dependencies.NotificationsManager.GetRegisteredResourceTypes() {
 
-		// TODO: Is this really needed or useful?
-		// Check the existence of the resourceType into the WatcherPool.
-		// Remember the controller.NotificationController can remove watchers on garbage collection
-		if _, resourceTypeFound := globals.Application.WatcherPool.Pool[resourceType]; !resourceTypeFound {
+		_, watcherExists := r.Dependencies.WatchersManager.GetWatcher(resourceType)
+
+		// Avoid wasting CPU for nothing
+		if watcherExists && r.Dependencies.WatchersManager.IsStarted(resourceType) {
 			continue
 		}
 
-		// Prevent blocked watchers from being started.
-		// Remember the controller.NotificationController blocks them during garbage collection
-		if *resourceTypeWatcher.Blocked {
-			continue
-		}
+		//
+		if !watcherExists || !r.Dependencies.WatchersManager.IsStarted(resourceType) {
+			go r.watchTypeWithInformer(resourceType)
 
-		if !*resourceTypeWatcher.Started {
-			go r.watchTypeWithInformer(ctx, resourceType)
-
-			// TODO: Improve following logic in future versions
-
-			// Wait for the resourceType watcher to ACK itself into WatcherPool
+			// Wait for the just started watcher to ACK itself
 			time.Sleep(secondsToCheckWatcherAck)
-			if *(globals.Application.WatcherPool.Pool[resourceType].Started) == false {
+			if !r.Dependencies.WatchersManager.IsStarted(resourceType) {
 				logger.Info(fmt.Sprintf(resourceWatcherLaunchingError, resourceType))
 			}
 		}
 
-		// Wait a bit to reduce the spam to machine resources
+		// Reduce CPU cycles spam
 		time.Sleep(secondsToReconcileWatchersAgain)
 	}
 }
 
-// watchTypeInformer launches a watcher for a certain resource type, and trigger processing for each entering resource event
-func (r *WatchersController) watchTypeWithInformer(ctx context.Context, watchedType globals.ResourceTypeName) {
+// watchTypeWithInformer creates and runs a Kubernetes informer for the specified
+// resource type, and triggers processing for each event
+func (r *WatchersController) watchTypeWithInformer(resourceType watchersManager.ResourceTypeName) {
 
-	logger := log.FromContext(ctx)
+	logger := log.FromContext(*r.Dependencies.Context)
 
-	logger.Info(fmt.Sprintf(controllerWatcherStartedMessage, watchedType))
+	watcher, watcherExists := r.Dependencies.WatchersManager.GetWatcher(resourceType)
+	if !watcherExists {
+		watcher = r.Dependencies.WatchersManager.RegisterWatcher(resourceType)
+	}
 
-	// Set ACK flag for watcher launching into the WatcherPool
-	*(globals.Application.WatcherPool.Pool[watchedType].Started) = true
+	logger.Info(fmt.Sprintf(controllerWatcherStartedMessage, resourceType))
+
+	// Trigger ACK flag for watcher that is launching
+	// Hey, this informer is blocking, so ACK is only disabled if the informer becomes dead
+	_ = r.Dependencies.WatchersManager.SetStarted(resourceType, true)
 	defer func() {
-		*(globals.Application.WatcherPool.Pool[watchedType].Started) = false
+		_ = r.Dependencies.WatchersManager.SetStarted(resourceType, false)
 	}()
-
-	notificationList := globals.Application.WatcherPool.Pool[watchedType].NotificationList
 
 	// Extract GVR + Namespace + Name from watched type:
 	// {group}/{version}/{resource}/{namespace}/{name}
-	GVRNN := strings.Split(string(watchedType), "/")
+	GVRNN := strings.Split(resourceType, "/")
 	if len(GVRNN) != 5 {
 		logger.Info(resourceWatcherGvrParsingError)
 		return
@@ -196,17 +231,14 @@ func (r *WatchersController) watchTypeWithInformer(ctx context.Context, watchedT
 	stopCh := make(chan struct{})
 
 	go func() {
-		<-*(globals.Application.WatcherPool.Pool[watchedType].StopSignal)
+		<-watcher.StopSignal
 		close(stopCh)
-		logger.Info(fmt.Sprintf(controllerWatcherKilledMessage, watchedType))
+		logger.Info(fmt.Sprintf(controllerWatcherKilledMessage, resourceType))
 	}()
 
 	// Define our informer TODO
 	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(globals.Application.KubeRawClient,
 		r.Options.InformerDurationToResync, namespace, listOptionsFunc)
-
-	// Optional TODO
-	//factory.WaitForCacheSync(stopCh)
 
 	// Create an informer. This is a special type of client-go watcher that includes
 	// mechanisms to hide disconnections, handle reconnections, and cache watched objects
@@ -218,7 +250,7 @@ func (r *WatchersController) watchTypeWithInformer(ctx context.Context, watchedT
 		AddFunc: func(eventObject interface{}) {
 			convertedEventObject := eventObject.(*unstructured.Unstructured)
 
-			err := r.processEvent(ctx, notificationList, watch.Added, convertedEventObject.UnstructuredContent())
+			err := r.processEvent(resourceType, watch.Added, convertedEventObject.UnstructuredContent())
 			if err != nil {
 				logger.Error(err, fmt.Sprintf(watchedObjectParseError, err))
 			}
@@ -227,7 +259,7 @@ func (r *WatchersController) watchTypeWithInformer(ctx context.Context, watchedT
 			convertedEventObjectOld := eventObjectOld.(*unstructured.Unstructured)
 			convertedEventObject := eventObject.(*unstructured.Unstructured)
 
-			err := r.processEvent(ctx, notificationList, watch.Modified,
+			err := r.processEvent(resourceType, watch.Modified,
 				convertedEventObject.UnstructuredContent(), convertedEventObjectOld.UnstructuredContent())
 			if err != nil {
 				logger.Error(err, fmt.Sprintf(watchedObjectParseError, err))
@@ -236,7 +268,7 @@ func (r *WatchersController) watchTypeWithInformer(ctx context.Context, watchedT
 		DeleteFunc: func(eventObject interface{}) {
 			convertedEventObject := eventObject.(*unstructured.Unstructured)
 
-			err := r.processEvent(ctx, notificationList, watch.Deleted, convertedEventObject.UnstructuredContent())
+			err := r.processEvent(resourceType, watch.Deleted, convertedEventObject.UnstructuredContent())
 			if err != nil {
 				logger.Error(err, fmt.Sprintf(watchedObjectParseError, err))
 			}
@@ -254,8 +286,10 @@ func (r *WatchersController) watchTypeWithInformer(ctx context.Context, watchedT
 
 // processEvent process an event coming from a watched resource type.
 // It computes templating, evaluates conditions and decides whether to send a message for a given manifest
-func (r *WatchersController) processEvent(ctx context.Context, notificationList *[]*v1alpha1.Notification, eventType watch.EventType, object ...map[string]interface{}) (err error) {
-	logger := log.FromContext(ctx)
+func (r *WatchersController) processEvent(resourceType watchersManager.ResourceTypeName, eventType watch.EventType, object ...map[string]interface{}) (err error) {
+	logger := log.FromContext(*r.Dependencies.Context)
+
+	notificationList := r.Dependencies.NotificationsManager.GetNotifications(resourceType)
 
 	// Process only certain event types
 	if eventType != watch.Added && eventType != watch.Modified && eventType != watch.Deleted {
@@ -279,7 +313,7 @@ func (r *WatchersController) processEvent(ctx context.Context, notificationList 
 	}
 
 	//
-	for _, notification := range *notificationList {
+	for _, notification := range notificationList {
 
 		var conditionFlags []bool
 		for _, condition := range notification.Spec.Conditions {
@@ -314,7 +348,7 @@ func (r *WatchersController) processEvent(ctx context.Context, notificationList 
 			Info(eventConditionsTriggerIntegrationsMessage)
 
 		// Send the message through integrations
-		err = integrations.SendMessage(ctx, notification.Spec.Message.Integration.Name, parsedMessage)
+		err = integrations.SendMessage(*r.Dependencies.Context, notification.Spec.Message.Integration.Name, parsedMessage)
 		if err != nil {
 			logger.WithValues(
 				"notification", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),

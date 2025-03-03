@@ -19,6 +19,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 
 	"gopkg.in/yaml.v3"
 	"os"
@@ -44,6 +45,8 @@ import (
 	"freepik.com/notifik/internal/controller/notifications"
 	"freepik.com/notifik/internal/controller/watchers"
 	"freepik.com/notifik/internal/globals"
+	notificationsManager "freepik.com/notifik/internal/manager/notifications"
+	watchersManager "freepik.com/notifik/internal/manager/watchers"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -107,6 +110,7 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	// Parse the config file
+	fmt.Printf("La ruta: %v\n", configPath)
 	configBytes, err := os.ReadFile(configPath)
 	if err != nil {
 		setupLog.Error(err, "unable to find configuration YAML")
@@ -233,12 +237,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create registries managers that will be used by several controllers
+	notificationsMgr := notificationsManager.NewNotificationsManager()
+	watchersMgr := watchersManager.NewWatchersManager()
+
+	// Setup Notifications controller
 	if err = (&notifications.NotificationReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 
 		Options: notifications.NotificationControllerOptions{
 			EnableWatcherPoolCleaner: enableWatcherPoolCleaner,
+		},
+
+		Dependencies: notifications.NotificationControllerDependencies{
+			NotificationsManager: notificationsMgr,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Notification")
@@ -285,13 +298,17 @@ func main() {
 	watchersController := watchers.WatchersController{
 		Client: mgr.GetClient(),
 		Options: watchers.WatchersControllerOptions{
-			// Options for Informers
 			InformerDurationToResync: informerDurationToResync,
+		},
+		Dependencies: watchers.WatchersControllerDependencies{
+			Context:              &globals.Application.Context,
+			NotificationsManager: notificationsMgr,
+			WatchersManager:      watchersMgr,
 		},
 	}
 
 	setupLog.Info("starting watchers controller")
-	go watchersController.Start(globals.Application.Context)
+	go watchersController.Start()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(globals.Application.Context); err != nil {

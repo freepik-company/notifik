@@ -19,6 +19,7 @@ package notifications
 import (
 	"context"
 	"fmt"
+	"freepik.com/notifik/internal/manager/notifications"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -52,13 +53,18 @@ type NotificationControllerOptions struct {
 	EnableWatcherPoolCleaner bool
 }
 
+type NotificationControllerDependencies struct {
+	NotificationsManager *notifications.NotificationsManager
+}
+
 // NotificationReconciler reconciles a Notification object
 type NotificationReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
 	//
-	Options NotificationControllerOptions
+	Options      NotificationControllerOptions
+	Dependencies NotificationControllerDependencies
 }
 
 // +kubebuilder:rbac:groups=notifik.freepik.com,resources=notifications,verbs=get;list;watch;create;update;patch;delete
@@ -72,7 +78,6 @@ type NotificationReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	logger := log.FromContext(ctx)
-	_ = logger
 
 	// 1. Get the content of the notification
 	notificationManifest := &v1alpha1.Notification{}

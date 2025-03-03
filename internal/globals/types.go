@@ -19,8 +19,4 @@ type applicationT struct {
 
 	// KubeRawClient TODO
 	KubeRawClient *dynamic.DynamicClient
-
-	// WatcherPool TODO
-	//WatcherPool map[ResourceTypeName]ResourceTypeWatcherT
-	WatcherPool WatcherPoolT
 }

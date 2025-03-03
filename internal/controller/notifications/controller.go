@@ -37,21 +37,14 @@ const (
 	defaultSyncTimeForExitWithError = 10 * time.Second
 	notificationFinalizer           = "notifik.freepik.com/finalizer"
 
-	scheduleSynchronization = "Schedule synchronization in: %s"
-
-	notificationNotFoundError          = "Notification resource not found. Ignoring since object must be deleted."
-	notificationRetrievalError         = "Error getting the notification from the cluster"
-	notificationFinalizersUpdateError  = "Failed to update finalizer of notification: %s"
-	notificationConditionUpdateError   = "Failed to update the condition on notification: %s"
-	notificationSyncTimeRetrievalError = "Can not get synchronization time from the notification: %s"
-	notificationReconcileError         = "Can not reconcile Notification: %s"
+	notificationNotFoundError         = "Notification resource not found. Ignoring since object must be deleted."
+	notificationRetrievalError        = "Error getting the notification from the cluster"
+	notificationFinalizersUpdateError = "Failed to update finalizer of notification: %s"
+	notificationConditionUpdateError  = "Failed to update the condition on notification: %s"
+	notificationReconcileError        = "Can not reconcile Notification: %s"
 )
 
-type NotificationControllerOptions struct {
-
-	// Enable WatcherPool cleaner process
-	EnableWatcherPoolCleaner bool
-}
+type NotificationControllerOptions struct{}
 
 type NotificationControllerDependencies struct {
 	NotificationsManager *notifications.NotificationsManager

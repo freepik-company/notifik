@@ -74,7 +74,6 @@ func main() {
 	var tlsOpts []func(*tls.Config)
 
 	var configPath string
-	var enableWatcherPoolCleaner bool
 	var informerDurationToResync time.Duration
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
@@ -97,8 +96,6 @@ func main() {
 
 	//
 	flag.StringVar(&configPath, "config", "notifik.yaml", "The path to configuration file.")
-	flag.BoolVar(&enableWatcherPoolCleaner, "enable-watcher-cleaner", false,
-		"If set, WatcherPool cleaner will be enabled for orphan watchers")
 	flag.DurationVar(&informerDurationToResync, "informer-duration-to-resync", 300*time.Second, "Duration to wait until resyncing all the objects by informers")
 
 	opts := zap.Options{
@@ -246,10 +243,7 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 
-		Options: notifications.NotificationControllerOptions{
-			EnableWatcherPoolCleaner: enableWatcherPoolCleaner,
-		},
-
+		Options: notifications.NotificationControllerOptions{},
 		Dependencies: notifications.NotificationControllerDependencies{
 			NotificationsManager: notificationsMgr,
 		},

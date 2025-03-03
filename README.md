@@ -61,7 +61,6 @@ They are described in the following table:
 | `--metrics-cert-name`           | The name of the metrics server certificate file                    |   tls.crt    | `--metrics-cert-name "tls.crt"`       |
 | `--metrics-cert-key`            | The name of the metrics server key file                            |   tls.key    | `--metrics-cert-key "tls.key"`        |
 | `--config`                      | The path to configuration file                                     | notifik.yaml | `--config "./notifik.yaml"`           |
-| `--enable-watcher-cleaner`      | Enable a WatcherPool cleaning process for orphan watchers          |    false     | `--enable-watcher-cleaner true`       |
 | `--informer-duration-to-resync` | Duration to wait until resyncing all the objects by informers      |     300s     | `--informer-duration-to-resync 10m`   |
 
 

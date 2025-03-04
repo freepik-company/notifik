@@ -19,8 +19,6 @@ package integrations
 import (
 	"context"
 	"fmt"
-	"reflect"
-
 	//
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -58,6 +56,7 @@ type IntegrationReconciler struct {
 // +kubebuilder:rbac:groups=notifik.freepik.com,resources=integrations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=notifik.freepik.com,resources=integrations/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=notifik.freepik.com,resources=integrations/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -146,26 +145,22 @@ func (r *IntegrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 		// Watch Secrets and trigger reconciliation for Integrations using them
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			requests := []reconcile.Request{}
+
 			secret, ok := obj.(*corev1.Secret)
 			if !ok {
 				return []reconcile.Request{}
 			}
 
 			integrationList := r.Dependencies.IntegrationsRegistry.GetIntegrations()
-
-			requests := []reconcile.Request{}
-
 			for _, integration := range integrationList {
 
 				// Ignore integrations not asking for credentials
-				if reflect.ValueOf(integration.Spec.Credentials).IsZero() {
+				if !requestCredentials(integration) {
 					continue
 				}
 
-				if reflect.ValueOf(integration.Spec.Credentials.SecretRef).IsZero() {
-					continue
-				}
-
+				//
 				if integration.Spec.Credentials.SecretRef.Name == secret.Name &&
 					integration.Spec.Credentials.SecretRef.Namespace == secret.Namespace {
 					requests = append(requests, reconcile.Request{
@@ -176,8 +171,6 @@ func (r *IntegrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					})
 				}
 			}
-
-			fmt.Printf("Las requests: %v\n", requests)
 
 			return requests
 		})).

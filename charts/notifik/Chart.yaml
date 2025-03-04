@@ -6,7 +6,7 @@ type: application
 description: >-
   A Helm chart for Notifik, a Kubernetes operator to watch groups of resources and send
   notifications if conditions are met (realtime)
-version: 1.0.0 # chart version
+version: 1.0.1 # chart version
 appVersion: "1.0.0" # notifik version
 kubeVersion: ">=1.22.0-0" # kubernetes version
 home: https://github.com/freepik-company/notifik

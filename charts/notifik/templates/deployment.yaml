@@ -61,7 +61,6 @@ spec:
           {{- end }}
           - --health-probe-bind-address=:8081
           - --leader-elect
-          - --config=/notifik.yaml
           {{- with .Values.controller.extraArgs }}
           {{ toYaml . | nindent 10 }}
           {{- end }}
@@ -104,14 +103,10 @@ spec:
           securityContext:
             {{- toYaml .Values.controller.securityContext | nindent 12 }}
 
+          {{- with .Values.controller.extraVolumeMounts }}
           volumeMounts:
-            - name: config-volume
-              mountPath: /notifik.yaml
-              subPath: notifik.yaml
-
-            {{- with .Values.controller.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
-            {{- end }}
+          {{- end }}
 
       {{- with .Values.controller.nodeSelector }}
       nodeSelector:
@@ -126,13 +121,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 
+      {{- with .Values.controller.extraVolumes }}
       volumes:
-        - name: config-volume
-          configMap:
-            name: {{ include "notifik.fullname" . }}-config
-            defaultMode: 420
-
-        {{- with .Values.controller.extraVolumes }}
         {{- toYaml . | nindent 8 }}
-        {{- end }}
+      {{- end }}
 

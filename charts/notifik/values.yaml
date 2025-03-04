@@ -34,13 +34,6 @@ customClusterRole:
     # Annotations to add to the clusterRoleBinding
     annotations: {}
 
-# Configuration for the controller.
-# This is commonly used for passing credentials to integrations
-# Remember Notifik supports environment variables expansion, so you can use this pattern ${SOMETHING_SECRET}
-# as you were in your terminal
-# Ref: https://github.com/freepik-company/notifik?tab=readme-ov-file#config
-configuration: {}
-
 # TODO
 controller:
 

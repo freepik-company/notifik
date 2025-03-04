@@ -198,12 +198,12 @@ You can find the spec samples for all the versions of the resource in the [examp
 You may prefer to learn directly from an example, so let's explain it watching a ConfigMap:
 
 ```yaml
-   apiVersion: v1
-   kind: ConfigMap
-   metadata:
-     name: testing
-   data:
-     TEST_VAR: "placeholder"
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: testing
+data:
+  TEST_VAR: "placeholder"
 ```
 
 Now use a Notification CR to watch ConfigMap looking for changes. When the conditions are met, we want to 

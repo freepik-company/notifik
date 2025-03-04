@@ -325,13 +325,6 @@ make install run
 > Remember that your `kubectl` is pointing to your Kind cluster. 
 > However, you should always review the context your kubectl CLI is pointing to
 
-If you desire to run against your cluster using a custom configuration, run the controller this way
-from the root directory of this project:
-
-```console
- go run ./cmd/main.go --config ./your-path-to-notifik/config/samples/config/notifik.yaml
-```
-
 ## How releases are created
 
 Each release of this operator is done following several steps carefully in order not to break the things for anyone.

@@ -60,42 +60,8 @@ They are described in the following table:
 | `--metrics-cert-path`           | The directory that contains the metrics server certificate         |   (empty)    | `--metrics-cert-path "./certs"`       |
 | `--metrics-cert-name`           | The name of the metrics server certificate file                    |   tls.crt    | `--metrics-cert-name "tls.crt"`       |
 | `--metrics-cert-key`            | The name of the metrics server key file                            |   tls.key    | `--metrics-cert-key "tls.key"`        |
-| `--config`                      | The path to configuration file                                     | notifik.yaml | `--config "./notifik.yaml"`           |
 | `--informer-duration-to-resync` | Duration to wait until resyncing all the objects by informers      |     300s     | `--informer-duration-to-resync 10m`   |
 
-
-## Config
-
-There are some parameters that must be configured through the config file. 
-For instance, those related to integrations, that is how the messages are sent to your monitoring systems.
-
-```yaml
-integrations:
-
-  # (Optional) Configuration parameters to send generic webhooks
-  - name: webhook-sender
-    type: webhook
-    webhook:
-      url: "https://${WEBHOOK_TEST_USERNAME}:${WEBHOOK_TEST_PASSWORD}@webhook.site/c95d5e66-fb9d-4d03-8df5-47f87ede84d2"
-      verb: GET
-      headers:
-        X-Scope-OrgID: freepik-company
-
-  # (Optional) Configuration parameters to send generic webhooks with validators
-  - name: webhook-sender-with-validator
-    type: webhook
-    webhook:
-      url: "https://${WEBHOOK_TEST_USERNAME}:${WEBHOOK_TEST_PASSWORD}@webhook.site/c95d5e66-fb9d-4d03-8df5-47f87ede84d2"
-      verb: POST
-      validator: alertmanager
-      headers:
-        X-Scope-OrgID: freepik-company
-```
-
-As you can see in the previous example, we expand environment variables passed to the controller for configuration file. 
-This way, you can manage credentials in your desired way (this applies to everything, headers included)
-
-> By the moment, only `alertmanager` validator is available
 
 ## RBAC
 
@@ -155,6 +121,76 @@ resources:
 ```
 
 ## Example
+
+### Integrations
+
+The first resource you must know is called Integration. 
+This resource configures how the messages are sent to your monitoring systems by using webhooks or another way.
+Some others will be added in the future depending on the community needs (you can open an issue to discuss yours)
+
+```yaml
+apiVersion: notifik.freepik.com/v1alpha1
+kind: Integration
+metadata:
+  name: webhook-sender
+spec:
+
+  # All the patterns like ${EXAMPLE} will be replaced by equivalent
+  # key found in the Secret referenced in .spec.credentials
+  type: webhook
+  webhook:
+    url: "https://webhook.site/c95d5e66-fb9d-4d03-8df5-47f87ede84d2"
+    verb: GET
+    headers:
+      X-Scope-OrgID: freepik-company
+```
+
+Integrations can expand variables from a Secret to allow you to pass some credentials with safety 
+(this applies to everything, headers included).
+
+```yaml
+apiVersion: notifik.freepik.com/v1alpha1
+kind: Integration
+metadata:
+  name: webhook-sender
+spec:
+
+  # A secret can be referenced
+  credentials:
+    secretRef:
+      name: example-secret
+      namespace: default
+
+  # All the patterns like ${xxx_EXAMPLE_xxx} will be replaced by equivalent
+  # key found in the Secret referenced in .spec.credentials
+  type: webhook
+  webhook:
+    url: "https://${WEBHOOK_TEST_USERNAME}:${WEBHOOK_TEST_PASSWORD}@webhook.site/c95d5e66-fb9d-4d03-8df5-47f87ede84d2"
+    verb: GET
+    headers:
+      X-Scope-OrgID: freepik-company
+```
+
+Some integrations, such as `webhook`, admits validators to check outgoing messages syntax and inform you in logs:
+
+```yaml
+apiVersion: notifik.freepik.com/v1alpha1
+kind: Integration
+metadata:
+  name: webhook-sender
+spec:
+  # ... Other content here
+  
+  webhook:
+    url: "https://your-site.com"
+    verb: POST
+    validator: alertmanager
+```
+
+> By the moment, only `alertmanager` validator is available
+
+
+### Notifications
 
 To watch resources using this operator, you will need to create a CR of kind Notification. 
 You can find the spec samples for all the versions of the resource in the [examples directory](./config/samples)

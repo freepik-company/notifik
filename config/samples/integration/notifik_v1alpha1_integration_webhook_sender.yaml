@@ -3,11 +3,14 @@ kind: Integration
 metadata:
   name: webhook-sender
 spec:
+
   credentials:
     secretRef:
-      name: pepito-goloso
-      namespace: alguno
+      name: example-secret
+      namespace: default
 
+  # All the patterns like ${EXAMPLE} will be replaced by equivalent
+  # key found in the Secret referenced in .spec.credentials
   type: webhook
   webhook:
     url: "https://${WEBHOOK_TEST_USERNAME}:${WEBHOOK_TEST_PASSWORD}@webhook.site/c95d5e66-fb9d-4d03-8df5-47f87ede84d2"

@@ -45,7 +45,7 @@ var (
 	}
 )
 
-func SendMessage(ctx context.Context, params *v1alpha1.WebhookT, data string) (err error) {
+func SendMessage(ctx context.Context, params *v1alpha1.IntegrationWebhook, data string) (err error) {
 
 	// Check if the webhook has a validator and execute it when available
 	if params.Validator != "" {

@@ -21,17 +21,18 @@ import (
 	"fmt"
 	"reflect"
 
-	//
-	"freepik.com/notifik/internal/globals"
 	"freepik.com/notifik/internal/integrations/webhook"
+	integrationsRegistry "freepik.com/notifik/internal/registry/integrations"
 )
 
 // SendMessage send a message to a specific integration
-func SendMessage(ctx context.Context, integrationName string, msg string) (err error) {
+func SendMessage(ctx context.Context, integrationsReg *integrationsRegistry.IntegrationsRegistry, integrationName, msg string) (err error) {
+
+	integrationList := integrationsReg.GetIntegrations()
 
 	//
 	integrationFound := false
-	for _, integObj := range globals.Application.Configuration.Integrations {
+	for _, integObj := range integrationList {
 
 		if integObj.Name != integrationName {
 			continue
@@ -39,14 +40,14 @@ func SendMessage(ctx context.Context, integrationName string, msg string) (err e
 		integrationFound = true
 
 		//
-		if integObj.Type == "webhook" {
+		if integObj.Spec.Type == "webhook" {
 
 			// TODO: Perform this check on config initialization, not here
-			if reflect.ValueOf(integObj.Webhook).IsZero() {
+			if reflect.ValueOf(integObj.Spec.Webhook).IsZero() {
 				return fmt.Errorf("webhook configuration missing for integration %s", integrationName)
 			}
 
-			err = webhook.SendMessage(ctx, &integObj.Webhook, msg)
+			err = webhook.SendMessage(ctx, &integObj.Spec.Webhook, msg)
 			if err != nil {
 				return err
 			}

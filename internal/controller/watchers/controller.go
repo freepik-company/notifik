@@ -19,7 +19,7 @@ package watchers
 import (
 	"context"
 	"fmt"
-
+	"freepik.com/notifik/internal/integrations"
 	"slices"
 	"strings"
 	"time"
@@ -35,10 +35,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	//
 	"freepik.com/notifik/internal/globals"
-	"freepik.com/notifik/internal/integrations"
-	notificationsManager "freepik.com/notifik/internal/manager/notifications"
-	watchersManager "freepik.com/notifik/internal/manager/watchers"
+	integrationsRegistry "freepik.com/notifik/internal/registry/integrations"
+	notificationsRegistry "freepik.com/notifik/internal/registry/notifications"
+	watchersRegistry "freepik.com/notifik/internal/registry/watchers"
 	"freepik.com/notifik/internal/template"
 )
 
@@ -82,8 +83,9 @@ type WatchersControllerDependencies struct {
 	Context *context.Context
 
 	//
-	NotificationsManager *notificationsManager.NotificationsManager
-	WatchersManager      *watchersManager.WatchersManager
+	IntegrationsRegistry  *integrationsRegistry.IntegrationsRegistry
+	NotificationsRegistry *notificationsRegistry.NotificationsRegistry
+	WatchersRegistry      *watchersRegistry.WatchersRegistry
 }
 
 // WatchersController represents the controller that triggers parallel threads.
@@ -105,8 +107,8 @@ func (r *WatchersController) watchersCleanerWorker() {
 
 	for {
 		//
-		referentCandidates := r.Dependencies.NotificationsManager.GetRegisteredResourceTypes()
-		evaluableCandidates := r.Dependencies.WatchersManager.GetRegisteredResourceTypes()
+		referentCandidates := r.Dependencies.NotificationsRegistry.GetRegisteredResourceTypes()
+		evaluableCandidates := r.Dependencies.WatchersRegistry.GetRegisteredResourceTypes()
 
 		//
 		//logger.WithValues("types", referentCandidates).
@@ -116,7 +118,7 @@ func (r *WatchersController) watchersCleanerWorker() {
 
 		for _, resourceType := range evaluableCandidates {
 			if !slices.Contains(referentCandidates, resourceType) {
-				err := r.Dependencies.WatchersManager.DisableWatcher(resourceType)
+				err := r.Dependencies.WatchersRegistry.DisableWatcher(resourceType)
 				if err != nil {
 					logger.WithValues("resourceType", resourceType).
 						Info("Failed disabling watcher")
@@ -153,22 +155,22 @@ func (r *WatchersController) Start() {
 func (r *WatchersController) reconcileWatchers() {
 	logger := log.FromContext(*r.Dependencies.Context)
 
-	for _, resourceType := range r.Dependencies.NotificationsManager.GetRegisteredResourceTypes() {
+	for _, resourceType := range r.Dependencies.NotificationsRegistry.GetRegisteredResourceTypes() {
 
-		_, watcherExists := r.Dependencies.WatchersManager.GetWatcher(resourceType)
+		_, watcherExists := r.Dependencies.WatchersRegistry.GetWatcher(resourceType)
 
 		// Avoid wasting CPU for nothing
-		if watcherExists && r.Dependencies.WatchersManager.IsStarted(resourceType) {
+		if watcherExists && r.Dependencies.WatchersRegistry.IsStarted(resourceType) {
 			continue
 		}
 
 		//
-		if !watcherExists || !r.Dependencies.WatchersManager.IsStarted(resourceType) {
+		if !watcherExists || !r.Dependencies.WatchersRegistry.IsStarted(resourceType) {
 			go r.watchTypeWithInformer(resourceType)
 
 			// Wait for the just started watcher to ACK itself
 			time.Sleep(secondsToCheckWatcherAck)
-			if !r.Dependencies.WatchersManager.IsStarted(resourceType) {
+			if !r.Dependencies.WatchersRegistry.IsStarted(resourceType) {
 				logger.Info(fmt.Sprintf(resourceWatcherLaunchingError, resourceType))
 			}
 		}
@@ -180,22 +182,22 @@ func (r *WatchersController) reconcileWatchers() {
 
 // watchTypeWithInformer creates and runs a Kubernetes informer for the specified
 // resource type, and triggers processing for each event
-func (r *WatchersController) watchTypeWithInformer(resourceType watchersManager.ResourceTypeName) {
+func (r *WatchersController) watchTypeWithInformer(resourceType watchersRegistry.ResourceTypeName) {
 
 	logger := log.FromContext(*r.Dependencies.Context)
 
-	watcher, watcherExists := r.Dependencies.WatchersManager.GetWatcher(resourceType)
+	watcher, watcherExists := r.Dependencies.WatchersRegistry.GetWatcher(resourceType)
 	if !watcherExists {
-		watcher = r.Dependencies.WatchersManager.RegisterWatcher(resourceType)
+		watcher = r.Dependencies.WatchersRegistry.RegisterWatcher(resourceType)
 	}
 
 	logger.Info(fmt.Sprintf(controllerWatcherStartedMessage, resourceType))
 
 	// Trigger ACK flag for watcher that is launching
 	// Hey, this informer is blocking, so ACK is only disabled if the informer becomes dead
-	_ = r.Dependencies.WatchersManager.SetStarted(resourceType, true)
+	_ = r.Dependencies.WatchersRegistry.SetStarted(resourceType, true)
 	defer func() {
-		_ = r.Dependencies.WatchersManager.SetStarted(resourceType, false)
+		_ = r.Dependencies.WatchersRegistry.SetStarted(resourceType, false)
 	}()
 
 	// Extract GVR + Namespace + Name from watched type:
@@ -286,10 +288,10 @@ func (r *WatchersController) watchTypeWithInformer(resourceType watchersManager.
 
 // processEvent process an event coming from a watched resource type.
 // It computes templating, evaluates conditions and decides whether to send a message for a given manifest
-func (r *WatchersController) processEvent(resourceType watchersManager.ResourceTypeName, eventType watch.EventType, object ...map[string]interface{}) (err error) {
+func (r *WatchersController) processEvent(resourceType watchersRegistry.ResourceTypeName, eventType watch.EventType, object ...map[string]interface{}) (err error) {
 	logger := log.FromContext(*r.Dependencies.Context)
 
-	notificationList := r.Dependencies.NotificationsManager.GetNotifications(resourceType)
+	notificationList := r.Dependencies.NotificationsRegistry.GetNotifications(resourceType)
 
 	// Process only certain event types
 	if eventType != watch.Added && eventType != watch.Modified && eventType != watch.Deleted {
@@ -348,7 +350,8 @@ func (r *WatchersController) processEvent(resourceType watchersManager.ResourceT
 			Info(eventConditionsTriggerIntegrationsMessage)
 
 		// Send the message through integrations
-		err = integrations.SendMessage(*r.Dependencies.Context, notification.Spec.Message.Integration.Name, parsedMessage)
+		err = integrations.SendMessage(*r.Dependencies.Context, r.Dependencies.IntegrationsRegistry,
+			notification.Spec.Message.Integration.Name, parsedMessage)
 		if err != nil {
 			logger.WithValues(
 				"notification", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),

@@ -19,9 +19,8 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"fmt"
+	"freepik.com/notifik/internal/controller/integrations"
 
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"time"
@@ -41,12 +40,14 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	//
 	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
 	"freepik.com/notifik/internal/controller/notifications"
 	"freepik.com/notifik/internal/controller/watchers"
 	"freepik.com/notifik/internal/globals"
-	notificationsManager "freepik.com/notifik/internal/manager/notifications"
-	watchersManager "freepik.com/notifik/internal/manager/watchers"
+	integrationsRegistry "freepik.com/notifik/internal/registry/integrations"
+	notificationsRegistry "freepik.com/notifik/internal/registry/notifications"
+	watchersRegistry "freepik.com/notifik/internal/registry/watchers"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -73,7 +74,6 @@ func main() {
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
 
-	var configPath string
 	var informerDurationToResync time.Duration
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
@@ -95,7 +95,6 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 
 	//
-	flag.StringVar(&configPath, "config", "notifik.yaml", "The path to configuration file.")
 	flag.DurationVar(&informerDurationToResync, "informer-duration-to-resync", 300*time.Second, "Duration to wait until resyncing all the objects by informers")
 
 	opts := zap.Options{
@@ -105,21 +104,6 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-
-	// Parse the config file
-	fmt.Printf("La ruta: %v\n", configPath)
-	configBytes, err := os.ReadFile(configPath)
-	if err != nil {
-		setupLog.Error(err, "unable to find configuration YAML")
-		os.Exit(1)
-	}
-
-	configString := os.ExpandEnv(string(configBytes))
-	err = yaml.Unmarshal([]byte(configString), &globals.Application.Configuration)
-	if err != nil {
-		setupLog.Error(err, "imposible to parse configuration YAML")
-		os.Exit(1)
-	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -235,8 +219,9 @@ func main() {
 	}
 
 	// Create registries managers that will be used by several controllers
-	notificationsMgr := notificationsManager.NewNotificationsManager()
-	watchersMgr := watchersManager.NewWatchersManager()
+	integrationsReg := integrationsRegistry.NewIntegrationsRegistry()
+	notificationsReg := notificationsRegistry.NewNotificationsRegistry()
+	watchersReg := watchersRegistry.NewWatchersRegistry()
 
 	// Setup Notifications controller
 	if err = (&notifications.NotificationReconciler{
@@ -245,12 +230,27 @@ func main() {
 
 		Options: notifications.NotificationControllerOptions{},
 		Dependencies: notifications.NotificationControllerDependencies{
-			NotificationsManager: notificationsMgr,
+			NotificationsRegistry: notificationsReg,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Notification")
 		os.Exit(1)
 	}
+
+	// Setup Integrations controller
+	if err = (&integrations.IntegrationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+
+		Options: integrations.IntegrationControllerOptions{},
+		Dependencies: integrations.IntegrationControllerDependencies{
+			IntegrationsRegistry: integrationsReg,
+		},
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Integration")
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {
@@ -295,9 +295,10 @@ func main() {
 			InformerDurationToResync: informerDurationToResync,
 		},
 		Dependencies: watchers.WatchersControllerDependencies{
-			Context:              &globals.Application.Context,
-			NotificationsManager: notificationsMgr,
-			WatchersManager:      watchersMgr,
+			Context:               &globals.Application.Context,
+			IntegrationsRegistry:  integrationsReg,
+			NotificationsRegistry: notificationsReg,
+			WatchersRegistry:      watchersReg,
 		},
 	}
 

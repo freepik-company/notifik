@@ -17,18 +17,18 @@ limitations under the License.
 package notifications
 
 import (
-	v1alpha1 "freepik.com/notifik/api/v1alpha1"
+	"freepik.com/notifik/api/v1alpha1"
 	"golang.org/x/exp/maps"
 )
 
-func NewNotificationsManager() *NotificationsManager {
-	return &NotificationsManager{
+func NewNotificationsRegistry() *NotificationsRegistry {
+	return &NotificationsRegistry{
 		registry: make(map[ResourceTypeName][]*v1alpha1.Notification),
 	}
 }
 
 // AddNotification add a notification of provided type into registry
-func (m *NotificationsManager) AddNotification(rt ResourceTypeName, notification *v1alpha1.Notification) {
+func (m *NotificationsRegistry) AddNotification(rt ResourceTypeName, notification *v1alpha1.Notification) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -39,7 +39,7 @@ func (m *NotificationsManager) AddNotification(rt ResourceTypeName, notification
 }
 
 // RemoveNotification delete a notification of provided type
-func (m *NotificationsManager) RemoveNotification(rt ResourceTypeName, notification *v1alpha1.Notification) {
+func (m *NotificationsRegistry) RemoveNotification(rt ResourceTypeName, notification *v1alpha1.Notification) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -62,7 +62,7 @@ func (m *NotificationsManager) RemoveNotification(rt ResourceTypeName, notificat
 }
 
 // GetNotifications return all the notifications of provided type
-func (m *NotificationsManager) GetNotifications(rt ResourceTypeName) []*v1alpha1.Notification {
+func (m *NotificationsRegistry) GetNotifications(rt ResourceTypeName) []*v1alpha1.Notification {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -75,7 +75,7 @@ func (m *NotificationsManager) GetNotifications(rt ResourceTypeName) []*v1alpha1
 }
 
 // GetRegisteredResourceTypes returns TODO
-func (m *NotificationsManager) GetRegisteredResourceTypes() []ResourceTypeName {
+func (m *NotificationsRegistry) GetRegisteredResourceTypes() []ResourceTypeName {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package notifications
+package integrations
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,20 +24,20 @@ import (
 	"freepik.com/notifik/internal/controller"
 )
 
-func (r *NotificationReconciler) UpdateConditionSuccess(notification *v1alpha1.Notification) {
+func (r *IntegrationReconciler) UpdateConditionSuccess(integration *v1alpha1.Integration) {
 
 	//
 	condition := controller.NewCondition(controller.ConditionTypeResourceSynced, metav1.ConditionTrue,
 		controller.ConditionReasonTargetSynced, controller.ConditionReasonTargetSyncedMessage)
 
-	controller.UpdateCondition(&notification.Status.Conditions, condition)
+	controller.UpdateCondition(&integration.Status.Conditions, condition)
 }
 
-func (r *NotificationReconciler) UpdateConditionKubernetesApiCallFailure(notification *v1alpha1.Notification) {
+func (r *IntegrationReconciler) UpdateConditionKubernetesApiCallFailure(integration *v1alpha1.Integration) {
 
 	//
 	condition := controller.NewCondition(controller.ConditionTypeResourceSynced, metav1.ConditionTrue,
 		controller.ConditionReasonKubernetesApiCallErrorType, controller.ConditionReasonKubernetesApiCallErrorMessage)
 
-	controller.UpdateCondition(&notification.Status.Conditions, condition)
+	controller.UpdateCondition(&integration.Status.Conditions, condition)
 }

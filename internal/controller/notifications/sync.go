@@ -51,7 +51,7 @@ func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, even
 	if eventType == watch.Deleted {
 		logger.Info(notificationDeletionMessage, "watcher", watchedType)
 
-		r.Dependencies.NotificationsManager.RemoveNotification(watchedType, notificationManifest)
+		r.Dependencies.NotificationsRegistry.RemoveNotification(watchedType, notificationManifest)
 		return nil
 	}
 
@@ -59,11 +59,11 @@ func (r *NotificationReconciler) ReconcileNotification(ctx context.Context, even
 	if eventType == watch.Modified {
 		logger.Info(notificationUpdatedMessage, "watcher", watchedType)
 
-		for _, registeredResourceType := range r.Dependencies.NotificationsManager.GetRegisteredResourceTypes() {
-			r.Dependencies.NotificationsManager.RemoveNotification(registeredResourceType, notificationManifest)
+		for _, registeredResourceType := range r.Dependencies.NotificationsRegistry.GetRegisteredResourceTypes() {
+			r.Dependencies.NotificationsRegistry.RemoveNotification(registeredResourceType, notificationManifest)
 		}
 
-		r.Dependencies.NotificationsManager.AddNotification(watchedType, notificationManifest)
+		r.Dependencies.NotificationsRegistry.AddNotification(watchedType, notificationManifest)
 	}
 
 	return nil

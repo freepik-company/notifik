@@ -2,6 +2,32 @@ apiVersion: v1
 entries:
   notifik:
   - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2025-03-04T16:24:22.294075635Z"
+    description: A Helm chart for Notifik, a Kubernetes operator to watch groups of
+      resources and send notifications if conditions are met (realtime)
+    digest: 178fe4bd66bd378ceb791dd3a2b42387ac1263b37cb02a77467d69f5d2d300ec
+    home: https://github.com/freepik-company/notifik
+    keywords:
+    - freepik
+    - prosimcorp
+    - notifik
+    - gitops
+    kubeVersion: '>=1.22.0-0'
+    maintainers:
+    - email: ahernandez@freepik.com
+      name: Alby Hernández
+      url: https://github.com/freepik-company/notifik
+    - name: prosimcorp
+      url: https://github.com/prosimcorp
+    name: notifik
+    sources:
+    - https://github.com/freepik-company/notifik
+    type: application
+    urls:
+    - notifik-1.0.1.tgz
+    version: 1.0.1
+  - apiVersion: v2
     appVersion: 0.9.2
     created: "2025-03-03T13:46:56.549749398Z"
     description: A Helm chart for Notifik, a Kubernetes operator to watch groups of
@@ -339,4 +365,4 @@ entries:
     urls:
     - notifik-0.1.0.tgz
     version: 0.1.0
-generated: "2025-03-03T13:46:56.549846327Z"
+generated: "2025-03-04T16:24:22.294184558Z"

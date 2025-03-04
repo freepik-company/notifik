@@ -8,6 +8,7 @@ rules:
   - apiGroups:
     - notifik.freepik.com
     resources:
+    - integrations
     - notifications
     verbs:
     - create
@@ -20,12 +21,14 @@ rules:
   - apiGroups:
     - notifik.freepik.com
     resources:
+    - integrations/finalizers
     - notifications/finalizers
     verbs:
     - update
   - apiGroups:
     - notifik.freepik.com
     resources:
+    - integrations/status
     - notifications/status
     verbs:
     - get

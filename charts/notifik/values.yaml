@@ -59,7 +59,9 @@ controller:
   # Extra args to pass to the controller.
   # Ref: https://github.com/freepik-company/notifik?tab=readme-ov-file#flags
   # Example:
-  # - --events-per-second=100
+  # - --metrics-cert-path="./certs"
+  # - --metrics-cert-name="tls.crt"
+  # - --metrics-cert-key="tls.key"
   extraArgs: []
 
   # Define a list of environment variables used inside the controller
@@ -124,7 +126,12 @@ controller:
     # Specify whether metrics should be exposed or not
     enabled: false
 
-    # Specify whether RBAC proxy should protect metrics
+    # Specify whether to serve metrics behind https or not
+    # Remember to mount your certs by using volumes and add extra args to use them
+    # Ref: https://github.com/freepik-company/notifik?tab=readme-ov-file#flags
+    serveBehindHttps: false
+
+    # Specify whether metrics should be RBAC protected or not
     rbacProtectionEnabled: false
 
     # Specifies configuration for a Service resource to expose the metrics

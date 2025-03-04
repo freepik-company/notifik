@@ -28,36 +28,12 @@ spec:
       securityContext:
         {{- toYaml .Values.controller.podSecurityContext | nindent 8 }}
       containers:
-
-        {{- if and (.Values.controller.metrics.enabled) (.Values.controller.metrics.rbacProtectionEnabled) }}
         - args:
-          - --secure-listen-address=0.0.0.0:8443
-          - --upstream=http://127.0.0.1:8080/
-          - --logtostderr=true
-          - --v=0
-          image: gcr.io/kubebuilder/kube-rbac-proxy:v0.15.1
-          name: kube-rbac-proxy
-          ports:
-            - containerPort: 8443
-              name: metrics
-              protocol: TCP
-          resources:
-            limits:
-              cpu: 500m
-              memory: 128Mi
-            requests:
-              cpu: 5m
-              memory: 64Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-        {{- end }}
-
-        - args:
-          {{- if and (.Values.controller.metrics.enabled) }}
-          - --metrics-bind-address=127.0.0.1:8080
+          {{- if .Values.controller.metrics.enabled }}
+          - --metrics-bind-address=:8080
+          {{- if .Values.controller.metrics.serveBehindHttps }}
+          - --metrics-secure=true
+          {{- end }}
           {{- end }}
           - --health-probe-bind-address=:8081
           - --leader-elect
@@ -75,7 +51,7 @@ spec:
           {{ toYaml . | nindent 10 }}
           {{- end }}
 
-          {{- if and (.Values.controller.metrics.enabled) (not .Values.controller.metrics.rbacProtectionEnabled) }}
+          {{- if .Values.controller.metrics.enabled }}
           ports:
             - containerPort: 8080
               name: metrics

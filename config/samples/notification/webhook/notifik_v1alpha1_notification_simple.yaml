@@ -1,12 +1,6 @@
 apiVersion: notifik.freepik.com/v1alpha1
 kind: Notification
 metadata:
-  labels:
-    app.kubernetes.io/name: notification
-    app.kubernetes.io/instance: notification-sample-simple
-    app.kubernetes.io/part-of: notifik
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: notifik
   name: notification-sample-simple
 spec:
   # Resource to be watched

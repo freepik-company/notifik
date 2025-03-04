@@ -1,10 +1,14 @@
-## Append samples of your project ##
 resources:
   # Sample resources
   - configmap.yaml
   - secret.yaml
 
-  #
+  # Sample integrations
+  - integration/notifik_v1alpha1_integration_webhook_sender.yaml
+  - integration/notifik_v1alpha1_integration_webhook_sender_with_validator.yaml
+  - integration/notifik_v1alpha1_integration_webhook_sender_with_validator_other.yaml
+
+  # Sample notifications
   - notification/webhook/notifik_v1alpha1_notification_alertmanager_json.yaml
   - notification/webhook/notifik_v1alpha1_notification_alertmanager_yaml.yaml
   - notification/webhook/notifik_v1alpha1_notification_simple.yaml

@@ -1,0 +1,12 @@
+apiVersion: notifik.freepik.com/v1alpha1
+kind: Integration
+metadata:
+  name: webhook-sender-with-validator-other
+spec:
+  type: webhook
+  webhook:
+    url: "https://${WEBHOOK_TEST_USERNAME}:${WEBHOOK_TEST_PASSWORD}@webhook.site/c95d5e66-fb9d-4d03-8df5-47f87ede84d2"
+    verb: PUT
+    validator: alertmanager
+    headers:
+      X-Scope-OrgID: freepik-company

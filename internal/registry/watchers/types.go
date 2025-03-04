@@ -14,17 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package notifications
+package watchers
 
-import (
-	"freepik.com/notifik/api/v1alpha1"
-	"sync"
-)
+import "sync"
 
-// TODO
 type ResourceTypeName = string
 
-type NotificationsManager struct {
+// ResourceWatcher wraps status and control of a watcher of a resource.
+type ResourceWatcher struct {
+	mu sync.Mutex
+
+	Started    bool
+	StopSignal chan bool
+}
+
+// WatchersRegistry manage watchers' lifecycle
+type WatchersRegistry struct {
 	mu       sync.Mutex
-	registry map[ResourceTypeName][]*v1alpha1.Notification
+	watchers map[ResourceTypeName]*ResourceWatcher
 }

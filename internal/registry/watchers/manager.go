@@ -22,16 +22,16 @@ import (
 	"time"
 )
 
-// NewWatchersManager TODO
-func NewWatchersManager() *WatchersManager {
+// NewWatchersRegistry TODO
+func NewWatchersRegistry() *WatchersRegistry {
 
-	return &WatchersManager{
+	return &WatchersRegistry{
 		watchers: make(map[ResourceTypeName]*ResourceWatcher),
 	}
 }
 
 // RegisterWatcher registers a watcher for required resource type
-func (m *WatchersManager) RegisterWatcher(rt ResourceTypeName) *ResourceWatcher {
+func (m *WatchersRegistry) RegisterWatcher(rt ResourceTypeName) *ResourceWatcher {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -45,7 +45,7 @@ func (m *WatchersManager) RegisterWatcher(rt ResourceTypeName) *ResourceWatcher 
 
 // DisableWatcher send a signal to the watcher to stop
 // and delete it from the registry
-func (m *WatchersManager) DisableWatcher(rt ResourceTypeName) error {
+func (m *WatchersRegistry) DisableWatcher(rt ResourceTypeName) error {
 	watcher, exists := m.GetWatcher(rt)
 	if !exists {
 		return errors.New("watcher not found")
@@ -78,7 +78,7 @@ func (m *WatchersManager) DisableWatcher(rt ResourceTypeName) error {
 }
 
 // GetWatcher return the watcher attached to a resource type
-func (m *WatchersManager) GetWatcher(rt ResourceTypeName) (watcher *ResourceWatcher, exists bool) {
+func (m *WatchersRegistry) GetWatcher(rt ResourceTypeName) (watcher *ResourceWatcher, exists bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -88,7 +88,7 @@ func (m *WatchersManager) GetWatcher(rt ResourceTypeName) (watcher *ResourceWatc
 }
 
 // GetRegisteredResourceTypes returns TODO
-func (m *WatchersManager) GetRegisteredResourceTypes() []ResourceTypeName {
+func (m *WatchersRegistry) GetRegisteredResourceTypes() []ResourceTypeName {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -96,7 +96,7 @@ func (m *WatchersManager) GetRegisteredResourceTypes() []ResourceTypeName {
 }
 
 // SetStarted updates the 'started' flag of a watcher
-func (m *WatchersManager) SetStarted(rt ResourceTypeName, started bool) error {
+func (m *WatchersRegistry) SetStarted(rt ResourceTypeName, started bool) error {
 	watcher, exists := m.GetWatcher(rt)
 	if !exists {
 		return errors.New("watcher not found")
@@ -110,7 +110,7 @@ func (m *WatchersManager) SetStarted(rt ResourceTypeName, started bool) error {
 }
 
 // IsStarted returns whether a watcher of the provided resource type is started or not
-func (m *WatchersManager) IsStarted(rt ResourceTypeName) bool {
+func (m *WatchersRegistry) IsStarted(rt ResourceTypeName) bool {
 	watcher, exists := m.GetWatcher(rt)
 	if !exists {
 		return false

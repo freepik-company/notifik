@@ -19,35 +19,24 @@ package notifications
 import (
 	"context"
 	"fmt"
-	"freepik.com/notifik/internal/manager/notifications"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	v1alpha1 "freepik.com/notifik/api/v1alpha1"
-)
-
-const (
-	defaultSyncTimeForExitWithError = 10 * time.Second
-	notificationFinalizer           = "notifik.freepik.com/finalizer"
-
-	notificationNotFoundError         = "Notification resource not found. Ignoring since object must be deleted."
-	notificationRetrievalError        = "Error getting the notification from the cluster"
-	notificationFinalizersUpdateError = "Failed to update finalizer of notification: %s"
-	notificationConditionUpdateError  = "Failed to update the condition on notification: %s"
-	notificationReconcileError        = "Can not reconcile Notification: %s"
+	//
+	"freepik.com/notifik/api/v1alpha1"
+	"freepik.com/notifik/internal/controller"
+	"freepik.com/notifik/internal/registry/notifications"
 )
 
 type NotificationControllerOptions struct{}
 
 type NotificationControllerDependencies struct {
-	NotificationsManager *notifications.NotificationsManager
+	NotificationsRegistry *notifications.NotificationsRegistry
 }
 
 // NotificationReconciler reconciles a Notification object
@@ -73,38 +62,38 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	logger := log.FromContext(ctx)
 
 	// 1. Get the content of the notification
-	notificationManifest := &v1alpha1.Notification{}
-	err = r.Get(ctx, req.NamespacedName, notificationManifest)
+	objectManifest := &v1alpha1.Notification{}
+	err = r.Get(ctx, req.NamespacedName, objectManifest)
 
 	// 2. Check the existence inside the cluster
 	if err != nil {
 
 		// 2.1 It does NOT exist: manage removal
 		if err = client.IgnoreNotFound(err); err == nil {
-			logger.Info(notificationNotFoundError)
+			logger.Info(fmt.Sprintf(controller.ResourceNotFoundError, controller.NotificationResourceType, req.Name))
 			return result, err
 		}
 
 		// 2.2 Failed to get the resource, requeue the request
-		logger.Info(notificationRetrievalError)
+		logger.Info(fmt.Sprintf(controller.ResourceRetrievalError, controller.NotificationResourceType, req.Name, err.Error()))
 		return result, err
 	}
 
 	// 3. Check if the notification instance is marked to be deleted: indicated by the deletion timestamp being set
-	if !notificationManifest.DeletionTimestamp.IsZero() {
-		if controllerutil.ContainsFinalizer(notificationManifest, notificationFinalizer) {
+	if !objectManifest.DeletionTimestamp.IsZero() {
+		if controllerutil.ContainsFinalizer(objectManifest, controller.ResourceFinalizer) {
 			// Delete Notification from WatcherPool
-			err = r.ReconcileNotification(ctx, watch.Deleted, notificationManifest)
+			err = r.ReconcileNotification(ctx, watch.Deleted, objectManifest)
 			if err != nil {
-				logger.Info(fmt.Sprintf(notificationReconcileError, notificationManifest.Name))
+				logger.Info(fmt.Sprintf(controller.ResourceReconcileError, controller.NotificationResourceType, req.Name, err.Error()))
 				return result, err
 			}
 
 			// Remove the finalizers on notification CR
-			controllerutil.RemoveFinalizer(notificationManifest, notificationFinalizer)
-			err = r.Update(ctx, notificationManifest)
+			controllerutil.RemoveFinalizer(objectManifest, controller.ResourceFinalizer)
+			err = r.Update(ctx, objectManifest)
 			if err != nil {
-				logger.Info(fmt.Sprintf(notificationFinalizersUpdateError, req.Name))
+				logger.Info(fmt.Sprintf(controller.ResourceFinalizersUpdateError, controller.NotificationResourceType, req.Name, err.Error()))
 			}
 		}
 		result = ctrl.Result{}
@@ -113,9 +102,9 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// 4. Add finalizer to the notification CR
-	if !controllerutil.ContainsFinalizer(notificationManifest, notificationFinalizer) {
-		controllerutil.AddFinalizer(notificationManifest, notificationFinalizer)
-		err = r.Update(ctx, notificationManifest)
+	if !controllerutil.ContainsFinalizer(objectManifest, controller.ResourceFinalizer) {
+		controllerutil.AddFinalizer(objectManifest, controller.ResourceFinalizer)
+		err = r.Update(ctx, objectManifest)
 		if err != nil {
 			return result, err
 		}
@@ -123,25 +112,22 @@ func (r *NotificationReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// 5. Update the status before the requeue
 	defer func() {
-		err = r.Status().Update(ctx, notificationManifest)
+		err = r.Status().Update(ctx, objectManifest)
 		if err != nil {
-			logger.Info(fmt.Sprintf(notificationConditionUpdateError, req.Name))
+			logger.Info(fmt.Sprintf(controller.ResourceConditionUpdateError, controller.NotificationResourceType, req.Name, err.Error()))
 		}
 	}()
 
 	// 6. The Notification CR already exists: manage the update
-	err = r.ReconcileNotification(ctx, watch.Modified, notificationManifest)
+	err = r.ReconcileNotification(ctx, watch.Modified, objectManifest)
 	if err != nil {
-		logger.Info(fmt.Sprintf(notificationReconcileError, notificationManifest.Name))
+		r.UpdateConditionKubernetesApiCallFailure(objectManifest)
+		logger.Info(fmt.Sprintf(controller.ResourceReconcileError, controller.NotificationResourceType, req.Name, err.Error()))
 		return result, err
 	}
 
 	// 7. Success, update the status
-	UpdateNotificationCondition(notificationManifest, NewNotificationCondition(ConditionTypeResourceWatched,
-		metav1.ConditionTrue,
-		ConditionReasonResourceWatched,
-		ConditionReasonResourceWatchedMessage,
-	))
+	r.UpdateConditionSuccess(objectManifest)
 
 	return result, err
 }

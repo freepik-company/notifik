@@ -14,24 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package notifications
 
-// ConfigurationT TODO
-type ConfigurationT struct {
-	Integrations []IntegrationT `yaml:"integrations"`
-}
+import (
+	"freepik.com/notifik/api/v1alpha1"
+	"sync"
+)
 
-// IntegrationT TODO
-type IntegrationT struct {
-	Name    string   `yaml:"name"`
-	Type    string   `yaml:"type"`
-	Webhook WebhookT `yaml:"webhook,omitempty"`
-}
+// TODO
+type ResourceTypeName = string
 
-// WebhookT TODO
-type WebhookT struct {
-	Url       string            `yaml:"url"`
-	Verb      string            `yaml:"verb"`
-	Headers   map[string]string `yaml:"headers,omitempty"`
-	Validator string            `yaml:"validator,omitempty"`
+type NotificationsRegistry struct {
+	mu       sync.Mutex
+	registry map[ResourceTypeName][]*v1alpha1.Notification
 }

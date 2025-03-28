@@ -19,6 +19,9 @@ package notifications
 import (
 	"freepik.com/notifik/api/v1alpha1"
 	"golang.org/x/exp/maps"
+	"reflect"
+	"slices"
+	"strings"
 )
 
 func NewNotificationsRegistry() *NotificationsRegistry {
@@ -80,4 +83,40 @@ func (m *NotificationsRegistry) GetRegisteredResourceTypes() []ResourceTypeName 
 	defer m.mu.Unlock()
 
 	return maps.Keys(m.registry)
+}
+
+// GetRegisteredExtraResourcesTypes returns TODO
+func (m *NotificationsRegistry) GetRegisteredExtraResourcesTypes() []ResourceTypeName {
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	extraResourceTypes := []ResourceTypeName{}
+
+	// Loop over all notifications collecting extra resources
+	for _, resourceList := range m.registry {
+		for _, notificationObj := range resourceList {
+			for _, extraResource := range notificationObj.Spec.ExtraResources {
+
+				// Prevents potential explosions due to
+				// 'extraResource' comes empty from time to time
+				if reflect.ValueOf(extraResource).IsZero() {
+					continue
+				}
+
+				extraResourceName := strings.Join([]string{
+					extraResource.Group, extraResource.Version, extraResource.Resource,
+					extraResource.Namespace, extraResource.Name,
+				}, "/")
+
+				extraResourceTypes = append(extraResourceTypes, extraResourceName)
+			}
+		}
+	}
+
+	// Clean duplicated
+	slices.Sort(extraResourceTypes)
+	extraResourceTypes = slices.Compact(extraResourceTypes)
+
+	return extraResourceTypes
 }

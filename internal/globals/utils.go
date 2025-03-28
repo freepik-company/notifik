@@ -17,6 +17,7 @@ limitations under the License.
 package globals
 
 import (
+	"errors"
 	//
 	"k8s.io/client-go/dynamic"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,4 +37,20 @@ func NewKubernetesClient() (client *dynamic.DynamicClient, err error) {
 	}
 
 	return client, err
+}
+
+// TODO
+func GetObjectBasicData(object *map[string]interface{}) (objectData map[string]interface{}, err error) {
+
+	metadata, ok := (*object)["metadata"].(map[string]interface{})
+	if !ok {
+		err = errors.New("metadata not found or not in expected format")
+		return
+	}
+
+	objectData = make(map[string]interface{})
+	objectData["name"] = metadata["name"]
+	objectData["namespace"] = metadata["namespace"]
+
+	return objectData, nil
 }

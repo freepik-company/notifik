@@ -19,7 +19,6 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"freepik.com/notifik/internal/controller/integrations"
 
 	"os"
 	"path/filepath"
@@ -42,11 +41,14 @@ import (
 
 	//
 	notifikv1alpha1 "freepik.com/notifik/api/v1alpha1"
+	"freepik.com/notifik/internal/controller/integrations"
 	"freepik.com/notifik/internal/controller/notifications"
+	"freepik.com/notifik/internal/controller/sources"
 	"freepik.com/notifik/internal/controller/watchers"
 	"freepik.com/notifik/internal/globals"
 	integrationsRegistry "freepik.com/notifik/internal/registry/integrations"
 	notificationsRegistry "freepik.com/notifik/internal/registry/notifications"
+	sourcesRegistry "freepik.com/notifik/internal/registry/sources"
 	watchersRegistry "freepik.com/notifik/internal/registry/watchers"
 	// +kubebuilder:scaffold:imports
 )
@@ -222,6 +224,7 @@ func main() {
 	integrationsReg := integrationsRegistry.NewIntegrationsRegistry()
 	notificationsReg := notificationsRegistry.NewNotificationsRegistry()
 	watchersReg := watchersRegistry.NewWatchersRegistry()
+	sourcesReg := sourcesRegistry.NewSourcesRegistry()
 
 	// Setup Notifications controller
 	if err = (&notifications.NotificationReconciler{
@@ -299,11 +302,28 @@ func main() {
 			IntegrationsRegistry:  integrationsReg,
 			NotificationsRegistry: notificationsReg,
 			WatchersRegistry:      watchersReg,
+			SourcesRegistry:       sourcesReg,
 		},
 	}
 
 	setupLog.Info("starting watchers controller")
 	go watchersController.Start()
+
+	// Init secondary controller to accumulate extra-resources in a queryable pool
+	sourcesController := sources.SourcesController{
+		Client: mgr.GetClient(),
+		Options: sources.SourcesControllerOptions{
+			InformerDurationToResync: informerDurationToResync,
+		},
+		Dependencies: sources.SourcesControllerDependencies{
+			Context:               &globals.Application.Context,
+			NotificationsRegistry: notificationsReg,
+			SourcesRegistry:       sourcesReg,
+		},
+	}
+
+	setupLog.Info("starting sources controller")
+	go sourcesController.Start()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(globals.Application.Context); err != nil {

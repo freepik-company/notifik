@@ -19,7 +19,6 @@ package watchers
 import (
 	"context"
 	"fmt"
-	"freepik.com/notifik/internal/integrations"
 	"slices"
 	"strings"
 	"time"
@@ -37,8 +36,10 @@ import (
 
 	//
 	"freepik.com/notifik/internal/globals"
+	"freepik.com/notifik/internal/integrations"
 	integrationsRegistry "freepik.com/notifik/internal/registry/integrations"
 	notificationsRegistry "freepik.com/notifik/internal/registry/notifications"
+	sourcesRegistry "freepik.com/notifik/internal/registry/sources"
 	watchersRegistry "freepik.com/notifik/internal/registry/watchers"
 	"freepik.com/notifik/internal/template"
 )
@@ -52,10 +53,6 @@ const (
 	// between the moment of launching watchers, and repeating this process
 	// (avoid the spam, mate)
 	secondsToReconcileWatchersAgain = 2 * time.Second
-
-	// secondsToResyncInformers is the number of seconds between syncing
-	// all the manifests and repeating this process
-	secondsToResyncInformers = 60 * 5 * time.Second
 
 	//
 	controllerContextFinishedMessage = "WatcherController finished by context"
@@ -86,6 +83,7 @@ type WatchersControllerDependencies struct {
 	IntegrationsRegistry  *integrationsRegistry.IntegrationsRegistry
 	NotificationsRegistry *notificationsRegistry.NotificationsRegistry
 	WatchersRegistry      *watchersRegistry.WatchersRegistry
+	SourcesRegistry       *sourcesRegistry.SourcesRegistry
 }
 
 // WatchersController represents the controller that triggers parallel threads.
@@ -109,12 +107,6 @@ func (r *WatchersController) watchersCleanerWorker() {
 		//
 		referentCandidates := r.Dependencies.NotificationsRegistry.GetRegisteredResourceTypes()
 		evaluableCandidates := r.Dependencies.WatchersRegistry.GetRegisteredResourceTypes()
-
-		//
-		//logger.WithValues("types", referentCandidates).
-		//	Debug("Current resource types in Notification registry")
-		//logger.WithValues("types", evaluableCandidates).
-		//	Debug("Current resource types in watchers registry")
 
 		for _, resourceType := range evaluableCandidates {
 			if !slices.Contains(referentCandidates, resourceType) {
@@ -146,6 +138,7 @@ func (r *WatchersController) Start() {
 			return
 		default:
 			r.reconcileWatchers()
+			//time.Sleep(secondsToReconcileWatchersAgain)
 		}
 	}
 }
@@ -299,7 +292,7 @@ func (r *WatchersController) processEvent(resourceType watchersRegistry.Resource
 	}
 
 	// Get object name and namespace for logging ease
-	objectBasicData, err := GetObjectBasicData(&object[0])
+	objectBasicData, err := globals.GetObjectBasicData(&object[0])
 	if err != nil {
 		return err
 	}
@@ -317,6 +310,25 @@ func (r *WatchersController) processEvent(resourceType watchersRegistry.Resource
 	//
 	for _, notification := range notificationList {
 
+		// Time to add sources from 'extraResources'
+		templateInjectedObject["sources"] = [][]map[string]any{}
+		sources, ok := templateInjectedObject["sources"].([][]map[string]any)
+		if !ok {
+			panic("unexpected type for templated sources") // TODO: Improve this message
+		}
+
+		for _, resource := range notification.Spec.ExtraResources {
+			joinedResourceName := strings.Join([]string{
+				resource.Group, resource.Version, resource.Resource,
+				resource.Namespace, resource.Name,
+			}, "/")
+
+			tmpResourceList := r.Dependencies.SourcesRegistry.GetResources(joinedResourceName)
+			sources = append(sources, tmpResourceList)
+		}
+		templateInjectedObject["sources"] = sources
+
+		//
 		var conditionFlags []bool
 		for _, condition := range notification.Spec.Conditions {
 			parsedKey, err := template.EvaluateTemplate(condition.Key, templateInjectedObject)

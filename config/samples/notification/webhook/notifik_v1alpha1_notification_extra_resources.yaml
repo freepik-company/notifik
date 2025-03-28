@@ -1,0 +1,43 @@
+apiVersion: notifik.freepik.com/v1alpha1
+kind: Notification
+metadata:
+  name: notification-sample-extra-resources
+spec:
+  # Resource to be watched
+  watch:
+    group: ""
+    version: v1
+    resource: secrets
+
+    # (Optional) It's possible to watch specific resources
+    # name: testing
+    # namespace: default
+
+  extraResources:
+    - group: ""
+      version: v1
+      resource: nodes
+
+      # (Optional) It's possible to watch specific resources
+      # name: testing
+      # namespace: default
+
+  conditions:
+    - name: check-node-name-on-secret-event
+      # The 'key' field admits vitamin Golang templating (well known from Helm)
+      # The result of this field will be compared with 'value' for equality
+      key: |      
+        {{- $extraResources := .sources -}}
+        {{- $nodes := (index $extraResources 0) -}}
+        {{- $firstListedNode := (index $nodes 0) -}}
+        {{- logPrintf "Hello, i'm logging a node's name: %s" $firstListedNode.metadata.name -}}
+        
+        {{- printf "%s" $firstListedNode.metadata.name -}}
+
+      value: sample-node-name
+  message:
+    integration:
+      name: webhook-sender
+    data: |
+      {{- $object := .object -}}
+      {{- printf "Hi, I was triggered by Secret, but checking something on Node resources" -}}

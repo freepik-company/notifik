@@ -21,6 +21,15 @@ import (
 )
 
 // TODO
+type NotificationExtraResource struct {
+	Group     string `json:"group"`
+	Version   string `json:"version"`
+	Resource  string `json:"resource"`
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name,omitempty"`
+}
+
+// TODO
 type NotificationWatch struct {
 	Group     string `json:"group"`
 	Version   string `json:"version"`
@@ -48,9 +57,10 @@ type NotificationMessage struct {
 
 // NotificationSpec defines the desired state of Notification
 type NotificationSpec struct {
-	Watch      NotificationWatch       `json:"watch"`
-	Conditions []NotificationCondition `json:"conditions"`
-	Message    NotificationMessage     `json:"message"`
+	Watch          NotificationWatch           `json:"watch"`
+	ExtraResources []NotificationExtraResource `json:"extraResources,omitempty"`
+	Conditions     []NotificationCondition     `json:"conditions"`
+	Message        NotificationMessage         `json:"message"`
 }
 
 // NotificationStatus defines the observed state of Notification

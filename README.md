@@ -260,7 +260,7 @@ When a watched resource triggers an event, we pass the whole manifest to all the
 the alert data). 
 
 This means the event type, the manifest (as Go object) and previous object (on update events) are available 
-in the main scope `.eventType`, `.object`, `.previousObject` 
+in the main scope `.eventType`, `.object`, `.previousObject`
 
 This means that the objects can be accessed or stored in variables in the following way:
 ```yaml
@@ -283,6 +283,42 @@ spec:
        
       {{- printf "%s" $source.metadata.name -}}
     value: testing
+```
+
+At the same time, it's possible to inject some extra resources apart from the one that triggered the event.
+This allows operators to create conditions or messages based on them:
+
+> [!NOTE]
+> Sources declared in extraResources section are injected under `.sources` scope
+
+```yaml
+apiVersion: notifik.freepik.com/v1alpha1
+kind: Notification
+metadata:
+  name: notification-sample-simple
+spec:
+  watch:
+     group: ""
+     version: v1
+     resource: secrets
+   
+  extraResources:
+     - group: ""
+       version: v1
+       resource: nodes
+
+  conditions:
+     - name: check-node-name-on-secret-event
+       key: |
+          {{- $extraResources := .sources -}}
+          {{- $nodes := (index $extraResources 0) -}}
+          {{- $firstListedNode := (index $nodes 0) -}}
+          
+          {{- printf "%s" $firstListedNode.metadata.name -}}
+
+          {{- logPrintf "Hello, i'm logging a node's name: %s" $firstListedNode.metadata.name -}}
+   
+       value: sample-node-name
 ```
 
 > Remember: with a big power comes a big responsibility

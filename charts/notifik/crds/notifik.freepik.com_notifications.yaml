@@ -60,6 +60,25 @@ spec:
                   - value
                   type: object
                 type: array
+              extraResources:
+                items:
+                  properties:
+                    group:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    resource:
+                      type: string
+                    version:
+                      type: string
+                  required:
+                  - group
+                  - resource
+                  - version
+                  type: object
+                type: array
               message:
                 properties:
                   data:

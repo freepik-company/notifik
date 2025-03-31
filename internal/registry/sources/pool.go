@@ -6,23 +6,20 @@ import (
 )
 
 // GetResources return all the objects of provided type
-func (m *SourcesRegistry) GetResources(rt ResourceTypeName) (results []map[string]any) {
+// Returning pointers to increase performance during templating stage with huge lists
+func (m *SourcesRegistry) GetResources(rt ResourceTypeName) (results []*map[string]any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	//
 	if _, informerFound := m.informers[rt]; !informerFound {
-		return []map[string]any{}
+		return []*map[string]any{}
 	}
 
 	m.informers[rt].mu.Lock()
 	defer m.informers[rt].mu.Unlock()
 
-	for _, item := range m.informers[rt].ItemPool {
-		results = append(results, *item)
-	}
-
-	return results
+	return m.informers[rt].ItemPool
 }
 
 // AddResource add a resource of provided type into registry

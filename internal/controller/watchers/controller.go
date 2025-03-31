@@ -311,8 +311,8 @@ func (r *WatchersController) processEvent(resourceType watchersRegistry.Resource
 	for _, notification := range notificationList {
 
 		// Time to add sources from 'extraResources'
-		templateInjectedObject["sources"] = [][]map[string]any{}
-		sources, ok := templateInjectedObject["sources"].([][]map[string]any)
+		templateInjectedObject["sources"] = [][]*map[string]any{}
+		sources, ok := templateInjectedObject["sources"].([][]*map[string]any)
 		if !ok {
 			panic("unexpected type for templated sources") // TODO: Improve this message
 		}

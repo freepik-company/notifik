@@ -82,6 +82,12 @@ func (r *IntegrationReconciler) ReconcileIntegration(ctx context.Context, eventT
 		return errors.New("integrations referencing credentials must have name and namespace")
 	}
 
+	// Secrets are only cached in the namespaces the controller was configured with
+	if !r.Options.secretsNamespaceAllowed(integrationManifest.Spec.Credentials.SecretRef.Namespace) {
+		return fmt.Errorf("credentials secret namespace '%s' is not in the list of allowed namespaces %v",
+			integrationManifest.Spec.Credentials.SecretRef.Namespace, r.Options.SecretsNamespaces)
+	}
+
 	//
 	credentialsSecret := &corev1.Secret{}
 	err = r.Get(ctx, types.NamespacedName{

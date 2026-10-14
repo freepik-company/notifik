@@ -37,6 +37,9 @@ spec:
           {{- end }}
           - --health-probe-bind-address=:8081
           - --leader-elect
+          {{- with .Values.controller.integrationSecrets.namespaces }}
+          - --integration-secrets-namespaces={{ join "," . }}
+          {{- end }}
           {{- with .Values.controller.extraArgs }}
           {{ toYaml . | nindent 10 }}
           {{- end }}

@@ -37,7 +37,11 @@ import (
 	"freepik.com/notifik/internal/registry/integrations"
 )
 
-type IntegrationControllerOptions struct{}
+type IntegrationControllerOptions struct {
+	// SecretsNamespaces is the list of namespaces where the Secrets referenced by Integrations
+	// in '.spec.credentials.secretRef' can live. Empty means all namespaces
+	SecretsNamespaces []string
+}
 
 type IntegrationControllerDependencies struct {
 	IntegrationsRegistry *integrations.IntegrationsRegistry

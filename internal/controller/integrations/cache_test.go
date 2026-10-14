@@ -229,15 +229,25 @@ func TestReconcileReturnsTerminalErrorForDisallowedNamespace(t *testing.T) {
 
 // Credentials without name or namespace can only be fixed by editing the Integration: do not requeue it
 func TestReconcileIntegrationIncompleteSecretRefIsTerminal(t *testing.T) {
-	r := newReconciler(t, nil)
-	integration := newIntegrationWithCredentials("")
+	r := newReconciler(t, []string{"team-a"})
 
-	err := r.ReconcileIntegration(context.Background(), watch.Modified, integration)
+	// A working Integration is registered first, then edited so its secretRef loses the namespace
+	if err := r.ReconcileIntegration(context.Background(), watch.Modified, newIntegrationWithCredentials("team-a")); err != nil {
+		t.Fatalf("ReconcileIntegration() unexpected error = %v", err)
+	}
+	if got := r.Dependencies.IntegrationsRegistry.GetIntegrations(); len(got) != 1 {
+		t.Fatalf("ReconcileIntegration() registered %d integrations, want 1", len(got))
+	}
+
+	err := r.ReconcileIntegration(context.Background(), watch.Modified, newIntegrationWithCredentials(""))
 	if !errors.Is(err, reconcile.TerminalError(nil)) {
 		t.Fatalf("ReconcileIntegration() error = %v, want a terminal error", err)
 	}
 	if !strings.Contains(err.Error(), "must have name and namespace") {
 		t.Errorf("ReconcileIntegration() error = %v, want the name and namespace message", err)
+	}
+	if got := r.Dependencies.IntegrationsRegistry.GetIntegrations(); len(got) != 0 {
+		t.Errorf("ReconcileIntegration() kept %d integrations registered, want the stale one removed", len(got))
 	}
 }
 

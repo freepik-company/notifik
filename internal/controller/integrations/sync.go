@@ -68,10 +68,12 @@ func (r *IntegrationReconciler) ReconcileIntegration(ctx context.Context, eventT
 	// 3. Handle 'create' / 'update' events
 	logger.Info(integrationUpdatedMessage)
 	defer func() {
+		// Whatever the error, unregister the Integration: a version that can not be synced must never
+		// keep sending with credentials expanded before this change
+		r.Dependencies.IntegrationsRegistry.RemoveIntegration(integrationManifest)
 		if err != nil {
 			return
 		}
-		r.Dependencies.IntegrationsRegistry.RemoveIntegration(integrationManifest)
 		r.Dependencies.IntegrationsRegistry.AddIntegration(integrationManifest)
 	}()
 
@@ -88,10 +90,8 @@ func (r *IntegrationReconciler) ReconcileIntegration(ctx context.Context, eventT
 	}
 
 	// Secrets are only cached in the namespaces the controller was configured with.
-	// Unregister the Integration, so it never keeps sending with credentials expanded before this change,
-	// and do not requeue it: only editing the Integration or the controller flags can fix it
+	// Do not requeue it: only editing the Integration or the controller flags can fix it
 	if !r.Options.secretsNamespaceAllowed(integrationManifest.Spec.Credentials.SecretRef.Namespace) {
-		r.Dependencies.IntegrationsRegistry.RemoveIntegration(integrationManifest)
 		return reconcile.TerminalError(fmt.Errorf("%w: '%s' is not in the list of allowed namespaces %v",
 			ErrSecretNamespaceNotAllowed,
 			integrationManifest.Spec.Credentials.SecretRef.Namespace, r.Options.SecretsNamespaces))

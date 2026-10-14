@@ -275,3 +275,25 @@ func TestReconcileSetsSecretNamespaceNotAllowedCondition(t *testing.T) {
 			metav1.ConditionFalse, controller.ConditionReasonSecretNamespaceNotAllowed)
 	}
 }
+
+// A Secret event must reach the Integrations that use it even when they are not registered, as happens
+// after a failed sync (e.g. the Secret was deleted): otherwise recreating the Secret would only be noticed
+// on the next backoff retry
+func TestIntegrationsForSecretFindsUnregisteredIntegrations(t *testing.T) {
+	integration := newIntegrationWithCredentials("team-a")
+	other := newIntegrationWithCredentials("team-b")
+	other.Name = "other-sender"
+	r := newReconciler(t, nil, integration, other)
+
+	if got := r.Dependencies.IntegrationsRegistry.GetIntegrations(); len(got) != 0 {
+		t.Fatalf("registry has %d integrations, want none for this test", len(got))
+	}
+
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "webhook-credentials", Namespace: "team-a"}}
+	got := r.integrationsForSecret(context.Background(), secret)
+
+	want := []reconcile.Request{{NamespacedName: types.NamespacedName{Name: integration.Name}}}
+	if len(got) != len(want) || got[0] != want[0] {
+		t.Errorf("integrationsForSecret() = %v, want %v", got, want)
+	}
+}

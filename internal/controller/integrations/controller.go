@@ -157,35 +157,47 @@ func (r *IntegrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("integration").
 
 		// Watch Secrets and trigger reconciliation for Integrations using them
-		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			requests := []reconcile.Request{}
-
-			secret, ok := obj.(*corev1.Secret)
-			if !ok {
-				return []reconcile.Request{}
-			}
-
-			integrationList := r.Dependencies.IntegrationsRegistry.GetIntegrations()
-			for _, integration := range integrationList {
-
-				// Ignore integrations not asking for credentials
-				if !requestCredentials(integration) {
-					continue
-				}
-
-				//
-				if integration.Spec.Credentials.SecretRef.Name == secret.Name &&
-					integration.Spec.Credentials.SecretRef.Namespace == secret.Namespace {
-					requests = append(requests, reconcile.Request{
-						NamespacedName: types.NamespacedName{
-							Name:      integration.Name,
-							Namespace: integration.Namespace,
-						},
-					})
-				}
-			}
-
-			return requests
-		})).
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(r.integrationsForSecret)).
 		Complete(r)
+}
+
+// integrationsForSecret returns a reconcile request for every Integration whose credentials point to the
+// given Secret. It lists Integrations from the cache, not from the registry: an Integration whose sync
+// failed (e.g. its Secret was missing) is not registered, and must still be reconciled when its Secret
+// shows up again
+func (r *IntegrationReconciler) integrationsForSecret(ctx context.Context, obj client.Object) []reconcile.Request {
+	requests := []reconcile.Request{}
+
+	secret, ok := obj.(*corev1.Secret)
+	if !ok {
+		return requests
+	}
+
+	integrationList := &v1alpha1.IntegrationList{}
+	if err := r.List(ctx, integrationList); err != nil {
+		log.FromContext(ctx).Error(err, "error listing Integrations to map a Secret event", "secret", client.ObjectKeyFromObject(secret))
+		return requests
+	}
+
+	for i := range integrationList.Items {
+		integration := &integrationList.Items[i]
+
+		// Ignore integrations not asking for credentials
+		if !requestCredentials(integration) {
+			continue
+		}
+
+		//
+		if integration.Spec.Credentials.SecretRef.Name == secret.Name &&
+			integration.Spec.Credentials.SecretRef.Namespace == secret.Namespace {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      integration.Name,
+					Namespace: integration.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
 }

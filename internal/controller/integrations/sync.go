@@ -42,6 +42,10 @@ const (
 )
 
 var (
+	// ErrSecretNamespaceNotAllowed is returned when an Integration references a credentials Secret
+	// outside the namespaces the controller was configured to read Secrets from
+	ErrSecretNamespaceNotAllowed = errors.New("credentials secret namespace is not allowed")
+
 	ExpansionPatternRegex = regexp.MustCompile(`\$\{([^}]+)\}`)
 )
 
@@ -80,7 +84,7 @@ func (r *IntegrationReconciler) ReconcileIntegration(ctx context.Context, eventT
 	if requestCredentials(integrationManifest) &&
 		(integrationManifest.Spec.Credentials.SecretRef.Name == "" ||
 			integrationManifest.Spec.Credentials.SecretRef.Namespace == "") {
-		return errors.New("integrations referencing credentials must have name and namespace")
+		return reconcile.TerminalError(errors.New("integrations referencing credentials must have name and namespace"))
 	}
 
 	// Secrets are only cached in the namespaces the controller was configured with.
@@ -88,8 +92,8 @@ func (r *IntegrationReconciler) ReconcileIntegration(ctx context.Context, eventT
 	// and do not requeue it: only editing the Integration or the controller flags can fix it
 	if !r.Options.secretsNamespaceAllowed(integrationManifest.Spec.Credentials.SecretRef.Namespace) {
 		r.Dependencies.IntegrationsRegistry.RemoveIntegration(integrationManifest)
-		return reconcile.TerminalError(fmt.Errorf(
-			"credentials secret namespace '%s' is not in the list of allowed namespaces %v",
+		return reconcile.TerminalError(fmt.Errorf("%w: '%s' is not in the list of allowed namespaces %v",
+			ErrSecretNamespaceNotAllowed,
 			integrationManifest.Spec.Credentials.SecretRef.Namespace, r.Options.SecretsNamespaces))
 	}
 

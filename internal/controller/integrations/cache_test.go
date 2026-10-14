@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"freepik.com/notifik/api/v1alpha1"
+	"freepik.com/notifik/internal/controller"
 	integrationsRegistry "freepik.com/notifik/internal/registry/integrations"
 )
 
@@ -222,5 +224,44 @@ func TestReconcileReturnsTerminalErrorForDisallowedNamespace(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "not in the list of allowed namespaces") {
 		t.Errorf("Reconcile() error = %v, want the allowed namespaces message", err)
+	}
+}
+
+// Credentials without name or namespace can only be fixed by editing the Integration: do not requeue it
+func TestReconcileIntegrationIncompleteSecretRefIsTerminal(t *testing.T) {
+	r := newReconciler(t, nil)
+	integration := newIntegrationWithCredentials("")
+
+	err := r.ReconcileIntegration(context.Background(), watch.Modified, integration)
+	if !errors.Is(err, reconcile.TerminalError(nil)) {
+		t.Fatalf("ReconcileIntegration() error = %v, want a terminal error", err)
+	}
+	if !strings.Contains(err.Error(), "must have name and namespace") {
+		t.Errorf("ReconcileIntegration() error = %v, want the name and namespace message", err)
+	}
+}
+
+// The status must say why the Integration is not synced, instead of a generic Kubernetes API failure
+func TestReconcileSetsSecretNamespaceNotAllowedCondition(t *testing.T) {
+	integration := newIntegrationWithCredentials("team-a")
+	r := newReconciler(t, []string{"team-b"}, integration)
+
+	request := ctrl.Request{NamespacedName: types.NamespacedName{Name: integration.Name}}
+	_, err := r.Reconcile(context.Background(), request)
+	if !errors.Is(err, ErrSecretNamespaceNotAllowed) || !errors.Is(err, reconcile.TerminalError(nil)) {
+		t.Fatalf("Reconcile() error = %v, want a terminal ErrSecretNamespaceNotAllowed", err)
+	}
+
+	got := &v1alpha1.Integration{}
+	if err := r.Get(context.Background(), request.NamespacedName, got); err != nil {
+		t.Fatal(err)
+	}
+	condition := meta.FindStatusCondition(got.Status.Conditions, controller.ConditionTypeResourceSynced)
+	switch {
+	case condition == nil:
+		t.Errorf("Reconcile() set conditions %+v, want %s", got.Status.Conditions, controller.ConditionTypeResourceSynced)
+	case condition.Reason != controller.ConditionReasonSecretNamespaceNotAllowed || condition.Status != metav1.ConditionFalse:
+		t.Errorf("Reconcile() condition = %s/%s, want %s/%s", condition.Status, condition.Reason,
+			metav1.ConditionFalse, controller.ConditionReasonSecretNamespaceNotAllowed)
 	}
 }

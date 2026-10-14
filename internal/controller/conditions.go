@@ -29,6 +29,11 @@ const (
 	ConditionReasonKubernetesApiCallErrorType    = "KubernetesApiCallError"
 	ConditionReasonKubernetesApiCallErrorMessage = "Call to Kubernetes API failed. More info in logs."
 
+	// Integration credentials Secret outside the namespaces the controller reads Secrets from
+	ConditionReasonSecretNamespaceNotAllowed        = "SecretNamespaceNotAllowed"
+	ConditionReasonSecretNamespaceNotAllowedMessage = "Credentials Secret namespace is not allowed by " +
+		"--integration-secrets-namespaces. More info in logs."
+
 	// Success
 	ConditionReasonTargetSynced        = "TargetSynced"
 	ConditionReasonTargetSyncedMessage = "Target was successfully synced"

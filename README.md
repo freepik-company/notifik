@@ -131,6 +131,9 @@ When those Secrets only live in some namespaces, pass them with `--integration-s
 namespaces, so a namespaced Role there is enough (the chart creates it), and Integrations referencing a Secret
 anywhere else fail to reconcile with an explicit error.
 
+The namespaced Role and RoleBinding only come with the Helm chart. Installs made with kustomize (`make deploy`) keep
+the `manager-role` ClusterRole from `config/rbac`, which reads Secrets cluster-wide, so narrow it yourself if needed.
+
 ## Example
 
 ### Integrations

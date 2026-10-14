@@ -18,6 +18,7 @@ package integrations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	//
 	corev1 "k8s.io/api/core/v1"
@@ -60,7 +61,7 @@ type IntegrationReconciler struct {
 // +kubebuilder:rbac:groups=notifik.freepik.com,resources=integrations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=notifik.freepik.com,resources=integrations/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=notifik.freepik.com,resources=integrations/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -133,7 +134,11 @@ func (r *IntegrationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// 6. The Notification CR already exists: manage the update
 	err = r.ReconcileIntegration(ctx, watch.Modified, objectManifest)
 	if err != nil {
-		r.UpdateConditionKubernetesApiCallFailure(objectManifest)
+		if errors.Is(err, ErrSecretNamespaceNotAllowed) {
+			r.UpdateConditionSecretNamespaceNotAllowed(objectManifest)
+		} else {
+			r.UpdateConditionKubernetesApiCallFailure(objectManifest)
+		}
 		logger.Info(fmt.Sprintf(controller.ResourceReconcileError, controller.IntegrationResourceType, req.Name, err.Error()))
 		return result, err
 	}

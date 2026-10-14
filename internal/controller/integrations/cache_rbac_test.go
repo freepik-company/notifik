@@ -20,11 +20,13 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -83,13 +85,37 @@ func TestSecretsCacheNeedsOnlyNamespacedRBAC(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Sanity check of the RBAC itself, without any cache: the user can list Secrets in 'team-a' only
+	userClient, err := client.New(user.Config(), client.Options{Scheme: clientgoscheme.Scheme})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := userClient.List(ctx, &corev1.SecretList{}, client.InNamespace("team-a")); err != nil {
+		t.Fatalf("namespaced List() error = %v, want the Role to allow it", err)
+	}
+	if err := userClient.List(ctx, &corev1.SecretList{}); !apierrors.IsForbidden(err) {
+		t.Fatalf("cluster-wide List() error = %v, want Forbidden", err)
+	}
+
 	tests := []struct {
 		name       string
 		namespaces []string
+		timeout    time.Duration
 		wantSynced bool
 	}{
-		{name: "restricted cache syncs with a namespaced Role", namespaces: []string{"team-a"}, wantSynced: true},
-		{name: "default cluster-wide cache does not sync", namespaces: nil, wantSynced: false},
+		{
+			name:       "restricted cache syncs with a namespaced Role",
+			namespaces: []string{"team-a"},
+			timeout:    10 * time.Second,
+			wantSynced: true,
+		},
+		{
+			// The informer keeps retrying a forbidden cluster-wide List, so the Get gives up when the context ends
+			name:       "default cluster-wide cache does not sync",
+			namespaces: nil,
+			timeout:    2 * time.Second,
+			wantSynced: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -102,7 +128,7 @@ func TestSecretsCacheNeedsOnlyNamespacedRBAC(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			cacheCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			cacheCtx, cancel := context.WithTimeout(ctx, tt.timeout)
 			defer cancel()
 			go func() { _ = secretsCache.Start(cacheCtx) }()
 
@@ -112,18 +138,22 @@ func TestSecretsCacheNeedsOnlyNamespacedRBAC(t *testing.T) {
 			key := types.NamespacedName{Name: "webhook-credentials", Namespace: "team-a"}
 			for {
 				err = secretsCache.Get(cacheCtx, key, secret)
-				notStarted := &cache.ErrCacheNotStarted{}
-				if !errors.As(err, &notStarted) || cacheCtx.Err() != nil {
+				if !errors.As(err, new(*cache.ErrCacheNotStarted)) || cacheCtx.Err() != nil {
 					break
 				}
 				time.Sleep(50 * time.Millisecond)
 			}
 
-			if tt.wantSynced && (err != nil || string(secret.Data["TOKEN"]) != "s3cr3t") {
-				t.Fatalf("Get() through the restricted cache error = %v, data = %v", err, secret.Data)
+			if tt.wantSynced {
+				if err != nil || string(secret.Data["TOKEN"]) != "s3cr3t" {
+					t.Fatalf("Get() through the restricted cache error = %v, data = %v", err, secret.Data)
+				}
+				return
 			}
-			if !tt.wantSynced && (err == nil || errors.As(err, new(*cache.ErrCacheNotStarted))) {
-				t.Fatalf("Get() through the cluster-wide cache error = %v, want a sync failure", err)
+
+			// controller-runtime reports an informer that never synced as a 504 Timeout status error
+			if !apierrors.IsTimeout(err) || !strings.Contains(err.Error(), "Secret Informer to sync") {
+				t.Fatalf("Get() through the cluster-wide cache error = %v, want a Secret informer sync timeout", err)
 			}
 		})
 	}

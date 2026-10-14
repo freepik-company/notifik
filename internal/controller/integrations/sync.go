@@ -28,6 +28,7 @@ import (
 	//
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	//
 	"freepik.com/notifik/api/v1alpha1"
@@ -82,10 +83,14 @@ func (r *IntegrationReconciler) ReconcileIntegration(ctx context.Context, eventT
 		return errors.New("integrations referencing credentials must have name and namespace")
 	}
 
-	// Secrets are only cached in the namespaces the controller was configured with
+	// Secrets are only cached in the namespaces the controller was configured with.
+	// Unregister the Integration, so it never keeps sending with credentials expanded before this change,
+	// and do not requeue it: only editing the Integration or the controller flags can fix it
 	if !r.Options.secretsNamespaceAllowed(integrationManifest.Spec.Credentials.SecretRef.Namespace) {
-		return fmt.Errorf("credentials secret namespace '%s' is not in the list of allowed namespaces %v",
-			integrationManifest.Spec.Credentials.SecretRef.Namespace, r.Options.SecretsNamespaces)
+		r.Dependencies.IntegrationsRegistry.RemoveIntegration(integrationManifest)
+		return reconcile.TerminalError(fmt.Errorf(
+			"credentials secret namespace '%s' is not in the list of allowed namespaces %v",
+			integrationManifest.Spec.Credentials.SecretRef.Namespace, r.Options.SecretsNamespaces))
 	}
 
 	//

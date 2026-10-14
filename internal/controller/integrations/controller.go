@@ -118,11 +118,15 @@ func (r *IntegrationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	// 5. Update the status before the requeue
+	// 5. Update the status before the requeue.
+	// Keep the reconciliation error, if any, so controller-runtime gets it (and honours terminal errors)
 	defer func() {
-		err = r.Status().Update(ctx, objectManifest)
-		if err != nil {
-			logger.Info(fmt.Sprintf(controller.ResourceConditionUpdateError, controller.IntegrationResourceType, req.Name, err.Error()))
+		statusErr := r.Status().Update(ctx, objectManifest)
+		if statusErr != nil {
+			logger.Info(fmt.Sprintf(controller.ResourceConditionUpdateError, controller.IntegrationResourceType, req.Name, statusErr.Error()))
+			if err == nil {
+				err = statusErr
+			}
 		}
 	}()
 

@@ -17,17 +17,20 @@ limitations under the License.
 package integrations
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ParseSecretsNamespaces turns a comma-separated list of namespaces into a sorted slice
-// without blanks nor duplicates. An empty input returns nil, which means 'all namespaces'
-func ParseSecretsNamespaces(raw string) []string {
+// without blanks nor duplicates. An empty input returns nil, which means 'all namespaces'.
+// Every namespace must be a valid DNS-1123 label, so typos or wildcards fail fast
+func ParseSecretsNamespaces(raw string) ([]string, error) {
 	items := strings.Split(raw, ",")
 	namespaces := make([]string, 0, len(items))
 
@@ -36,15 +39,18 @@ func ParseSecretsNamespaces(raw string) []string {
 		if namespace == "" || slices.Contains(namespaces, namespace) {
 			continue
 		}
+		if errs := validation.IsDNS1123Label(namespace); len(errs) > 0 {
+			return nil, fmt.Errorf("invalid namespace '%s': %s", namespace, strings.Join(errs, "; "))
+		}
 		namespaces = append(namespaces, namespace)
 	}
 
 	if len(namespaces) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	slices.Sort(namespaces)
-	return namespaces
+	return namespaces, nil
 }
 
 // SecretsCacheByObject returns the cache configuration that restricts the Secret informer,

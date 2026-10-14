@@ -18,6 +18,7 @@ package integrations
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -25,10 +26,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"freepik.com/notifik/api/v1alpha1"
 	integrationsRegistry "freepik.com/notifik/internal/registry/integrations"
@@ -36,19 +41,35 @@ import (
 
 func TestParseSecretsNamespaces(t *testing.T) {
 	tests := []struct {
-		name string
-		raw  string
-		want []string
+		name    string
+		raw     string
+		want    []string
+		wantErr bool
 	}{
 		{name: "empty means all namespaces", raw: "", want: nil},
 		{name: "only blanks means all namespaces", raw: " , ,", want: nil},
 		{name: "single namespace", raw: "notifik", want: []string{"notifik"}},
 		{name: "trimmed, deduplicated and sorted", raw: " team-b,team-a , team-b,,", want: []string{"team-a", "team-b"}},
+		{name: "wildcard is rejected", raw: "*", wantErr: true},
+		{name: "uppercase is rejected", raw: "notifik,Team-A", wantErr: true},
+		{name: "inner spaces are rejected", raw: "team a", wantErr: true},
+		{name: "dots are rejected", raw: "team.a", wantErr: true},
+		{name: "too long is rejected", raw: strings.Repeat("a", 64), wantErr: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ParseSecretsNamespaces(tt.raw); !reflect.DeepEqual(got, tt.want) {
+			got, err := ParseSecretsNamespaces(tt.raw)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("ParseSecretsNamespaces(%q) = %v, want an error", tt.raw, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseSecretsNamespaces(%q) unexpected error = %v", tt.raw, err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ParseSecretsNamespaces(%q) = %v, want %v", tt.raw, got, tt.want)
 			}
 		})
@@ -93,11 +114,14 @@ func newIntegrationWithCredentials(secretNamespace string) *v1alpha1.Integration
 	}
 }
 
-func newReconciler(t *testing.T, secretsNamespaces []string) *IntegrationReconciler {
+func newReconciler(t *testing.T, secretsNamespaces []string, objects ...client.Object) *IntegrationReconciler {
 	t.Helper()
 
 	scheme := runtime.NewScheme()
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
 
@@ -107,7 +131,10 @@ func newReconciler(t *testing.T, secretsNamespaces []string) *IntegrationReconci
 	}
 
 	return &IntegrationReconciler{
-		Client:       fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build(),
+		Client: fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(append(objects, secret)...).
+			WithStatusSubresource(&v1alpha1.Integration{}).
+			Build(),
 		Scheme:       scheme,
 		Options:      IntegrationControllerOptions{SecretsNamespaces: secretsNamespaces},
 		Dependencies: IntegrationControllerDependencies{IntegrationsRegistry: integrationsRegistry.NewIntegrationsRegistry()},
@@ -143,6 +170,9 @@ func TestReconcileIntegrationSecretsNamespaces(t *testing.T) {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("ReconcileIntegration() error = %v, want it to contain %q", err, tt.wantErr)
 				}
+				if !errors.Is(err, reconcile.TerminalError(nil)) {
+					t.Errorf("ReconcileIntegration() error = %v, want a terminal error", err)
+				}
 				if len(registered) != 0 {
 					t.Errorf("ReconcileIntegration() registered %d integrations on error, want 0", len(registered))
 				}
@@ -156,5 +186,41 @@ func TestReconcileIntegrationSecretsNamespaces(t *testing.T) {
 				t.Errorf("ReconcileIntegration() registered %+v, want one integration with expanded credentials", registered)
 			}
 		})
+	}
+}
+
+// An Integration that was working and is edited to point at a Secret outside the allowed namespaces
+// must be unregistered, so it never keeps sending with the credentials expanded before the edit
+func TestReconcileIntegrationEditedToDisallowedNamespace(t *testing.T) {
+	r := newReconciler(t, []string{"team-a"})
+
+	if err := r.ReconcileIntegration(context.Background(), watch.Modified, newIntegrationWithCredentials("team-a")); err != nil {
+		t.Fatalf("ReconcileIntegration() unexpected error = %v", err)
+	}
+	if got := r.Dependencies.IntegrationsRegistry.GetIntegrations(); len(got) != 1 {
+		t.Fatalf("ReconcileIntegration() registered %d integrations, want 1", len(got))
+	}
+
+	err := r.ReconcileIntegration(context.Background(), watch.Modified, newIntegrationWithCredentials("team-b"))
+	if !errors.Is(err, reconcile.TerminalError(nil)) {
+		t.Fatalf("ReconcileIntegration() error = %v, want a terminal error", err)
+	}
+	if got := r.Dependencies.IntegrationsRegistry.GetIntegrations(); len(got) != 0 {
+		t.Errorf("ReconcileIntegration() kept %d integrations registered, want the stale one removed", len(got))
+	}
+}
+
+// The terminal error must reach controller-runtime through Reconcile, despite the deferred status update
+func TestReconcileReturnsTerminalErrorForDisallowedNamespace(t *testing.T) {
+	integration := newIntegrationWithCredentials("team-a")
+	r := newReconciler(t, []string{"team-b"}, integration)
+
+	request := ctrl.Request{NamespacedName: types.NamespacedName{Name: integration.Name}}
+	_, err := r.Reconcile(context.Background(), request)
+	if !errors.Is(err, reconcile.TerminalError(nil)) {
+		t.Fatalf("Reconcile() error = %v, want a terminal error", err)
+	}
+	if !strings.Contains(err.Error(), "not in the list of allowed namespaces") {
+		t.Errorf("Reconcile() error = %v, want the allowed namespaces message", err)
 	}
 }

@@ -202,7 +202,11 @@ func main() {
 	}
 
 	// Restrict the Secrets cache to the given namespaces, if any. By default, they are cached cluster-wide
-	secretsNamespaces := integrations.ParseSecretsNamespaces(integrationSecretsNamespaces)
+	secretsNamespaces, err := integrations.ParseSecretsNamespaces(integrationSecretsNamespaces)
+	if err != nil {
+		setupLog.Error(err, "invalid value for flag --integration-secrets-namespaces")
+		os.Exit(1)
+	}
 	if len(secretsNamespaces) > 0 {
 		setupLog.Info("restricting Integration credentials Secrets to namespaces", "namespaces", secretsNamespaces)
 	}

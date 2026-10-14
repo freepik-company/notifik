@@ -1,0 +1,18 @@
+{{- with .Values.controller.integrationSecrets.namespaces }}
+{{- $secretsClusterWide := false }}
+{{- if $.Values.customClusterRole.create }}
+{{- range $.Values.customClusterRole.rules }}
+{{- if or (has "secrets" .resources) (has "*" .resources) }}
+{{- $secretsClusterWide = true }}
+{{- end }}
+{{- end }}
+{{- end }}
+Integration credentials Secrets are only read from these namespaces: {{ join ", " . }}
+They must already exist: neither the controller nor this chart creates them.
+{{- if $secretsClusterWide }}
+
+WARNING: 'customClusterRole' still grants access to Secrets cluster-wide, so restricting
+'controller.integrationSecrets.namespaces' does not reduce what the controller is allowed to read.
+Remove 'secrets' from 'customClusterRole.rules' unless your Notifications watch Secrets.
+{{- end }}
+{{- end }}

@@ -52,7 +52,7 @@ type NotificationReconciler struct {
 // +kubebuilder:rbac:groups=notifik.freepik.com,resources=notifications,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=notifik.freepik.com,resources=notifications/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=notifik.freepik.com,resources=notifications/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=secrets;configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=secrets;configmaps,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

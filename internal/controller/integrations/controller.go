@@ -18,6 +18,7 @@ package integrations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	//
 	corev1 "k8s.io/api/core/v1"
@@ -37,7 +38,11 @@ import (
 	"freepik.com/notifik/internal/registry/integrations"
 )
 
-type IntegrationControllerOptions struct{}
+type IntegrationControllerOptions struct {
+	// SecretsNamespaces is the list of namespaces where the Secrets referenced by Integrations
+	// in '.spec.credentials.secretRef' can live. Empty means all namespaces
+	SecretsNamespaces []string
+}
 
 type IntegrationControllerDependencies struct {
 	IntegrationsRegistry *integrations.IntegrationsRegistry
@@ -56,7 +61,7 @@ type IntegrationReconciler struct {
 // +kubebuilder:rbac:groups=notifik.freepik.com,resources=integrations,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=notifik.freepik.com,resources=integrations/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=notifik.freepik.com,resources=integrations/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -114,18 +119,26 @@ func (r *IntegrationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	// 5. Update the status before the requeue
+	// 5. Update the status before the requeue.
+	// Keep the reconciliation error, if any, so controller-runtime gets it (and honours terminal errors)
 	defer func() {
-		err = r.Status().Update(ctx, objectManifest)
-		if err != nil {
-			logger.Info(fmt.Sprintf(controller.ResourceConditionUpdateError, controller.IntegrationResourceType, req.Name, err.Error()))
+		statusErr := r.Status().Update(ctx, objectManifest)
+		if statusErr != nil {
+			logger.Info(fmt.Sprintf(controller.ResourceConditionUpdateError, controller.IntegrationResourceType, req.Name, statusErr.Error()))
+			if err == nil {
+				err = statusErr
+			}
 		}
 	}()
 
 	// 6. The Notification CR already exists: manage the update
 	err = r.ReconcileIntegration(ctx, watch.Modified, objectManifest)
 	if err != nil {
-		r.UpdateConditionKubernetesApiCallFailure(objectManifest)
+		if errors.Is(err, ErrSecretNamespaceNotAllowed) {
+			r.UpdateConditionSecretNamespaceNotAllowed(objectManifest)
+		} else {
+			r.UpdateConditionKubernetesApiCallFailure(objectManifest)
+		}
 		logger.Info(fmt.Sprintf(controller.ResourceReconcileError, controller.IntegrationResourceType, req.Name, err.Error()))
 		return result, err
 	}
@@ -144,35 +157,47 @@ func (r *IntegrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("integration").
 
 		// Watch Secrets and trigger reconciliation for Integrations using them
-		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			requests := []reconcile.Request{}
-
-			secret, ok := obj.(*corev1.Secret)
-			if !ok {
-				return []reconcile.Request{}
-			}
-
-			integrationList := r.Dependencies.IntegrationsRegistry.GetIntegrations()
-			for _, integration := range integrationList {
-
-				// Ignore integrations not asking for credentials
-				if !requestCredentials(integration) {
-					continue
-				}
-
-				//
-				if integration.Spec.Credentials.SecretRef.Name == secret.Name &&
-					integration.Spec.Credentials.SecretRef.Namespace == secret.Namespace {
-					requests = append(requests, reconcile.Request{
-						NamespacedName: types.NamespacedName{
-							Name:      integration.Name,
-							Namespace: integration.Namespace,
-						},
-					})
-				}
-			}
-
-			return requests
-		})).
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(r.integrationsForSecret)).
 		Complete(r)
+}
+
+// integrationsForSecret returns a reconcile request for every Integration whose credentials point to the
+// given Secret. It lists Integrations from the cache, not from the registry: an Integration whose sync
+// failed (e.g. its Secret was missing) is not registered, and must still be reconciled when its Secret
+// shows up again
+func (r *IntegrationReconciler) integrationsForSecret(ctx context.Context, obj client.Object) []reconcile.Request {
+	requests := []reconcile.Request{}
+
+	secret, ok := obj.(*corev1.Secret)
+	if !ok {
+		return requests
+	}
+
+	integrationList := &v1alpha1.IntegrationList{}
+	if err := r.List(ctx, integrationList); err != nil {
+		log.FromContext(ctx).Error(err, "error listing Integrations to map a Secret event", "secret", client.ObjectKeyFromObject(secret))
+		return requests
+	}
+
+	for i := range integrationList.Items {
+		integration := &integrationList.Items[i]
+
+		// Ignore integrations not asking for credentials
+		if !requestCredentials(integration) {
+			continue
+		}
+
+		//
+		if integration.Spec.Credentials.SecretRef.Name == secret.Name &&
+			integration.Spec.Credentials.SecretRef.Namespace == secret.Namespace {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      integration.Name,
+					Namespace: integration.Namespace,
+				},
+			})
+		}
+	}
+
+	return requests
 }

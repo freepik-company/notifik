@@ -28,6 +28,7 @@ import (
 	//
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	//
 	"freepik.com/notifik/api/v1alpha1"
@@ -41,6 +42,10 @@ const (
 )
 
 var (
+	// ErrSecretNamespaceNotAllowed is returned when an Integration references a credentials Secret
+	// outside the namespaces the controller was configured to read Secrets from
+	ErrSecretNamespaceNotAllowed = errors.New("credentials secret namespace is not allowed")
+
 	ExpansionPatternRegex = regexp.MustCompile(`\$\{([^}]+)\}`)
 )
 
@@ -63,10 +68,12 @@ func (r *IntegrationReconciler) ReconcileIntegration(ctx context.Context, eventT
 	// 3. Handle 'create' / 'update' events
 	logger.Info(integrationUpdatedMessage)
 	defer func() {
+		// Whatever the error, unregister the Integration: a version that can not be synced must never
+		// keep sending with credentials expanded before this change
+		r.Dependencies.IntegrationsRegistry.RemoveIntegration(integrationManifest)
 		if err != nil {
 			return
 		}
-		r.Dependencies.IntegrationsRegistry.RemoveIntegration(integrationManifest)
 		r.Dependencies.IntegrationsRegistry.AddIntegration(integrationManifest)
 	}()
 
@@ -79,7 +86,15 @@ func (r *IntegrationReconciler) ReconcileIntegration(ctx context.Context, eventT
 	if requestCredentials(integrationManifest) &&
 		(integrationManifest.Spec.Credentials.SecretRef.Name == "" ||
 			integrationManifest.Spec.Credentials.SecretRef.Namespace == "") {
-		return errors.New("integrations referencing credentials must have name and namespace")
+		return reconcile.TerminalError(errors.New("integrations referencing credentials must have name and namespace"))
+	}
+
+	// Secrets are only cached in the namespaces the controller was configured with.
+	// Do not requeue it: only editing the Integration or the controller flags can fix it
+	if !r.Options.secretsNamespaceAllowed(integrationManifest.Spec.Credentials.SecretRef.Namespace) {
+		return reconcile.TerminalError(fmt.Errorf("%w: '%s' is not in the list of allowed namespaces %v",
+			ErrSecretNamespaceNotAllowed,
+			integrationManifest.Spec.Credentials.SecretRef.Namespace, r.Options.SecretsNamespaces))
 	}
 
 	//

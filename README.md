@@ -61,6 +61,7 @@ They are described in the following table:
 | `--metrics-cert-name`           | The name of the metrics server certificate file                    |   tls.crt    | `--metrics-cert-name "tls.crt"`       |
 | `--metrics-cert-key`            | The name of the metrics server key file                            |   tls.key    | `--metrics-cert-key "tls.key"`        |
 | `--informer-duration-to-resync` | Duration to wait until resyncing all the objects by informers      |     300s     | `--informer-duration-to-resync 10m`   |
+| `--integration-secrets-namespaces` | Comma-separated namespaces where Secrets referenced by Integrations can live. Empty means all namespaces | (empty) | `--integration-secrets-namespaces "notifik,team-a"` |
 
 
 ## RBAC
@@ -119,6 +120,19 @@ resources:
   - clusterRole-notifik-custom-resources.yaml
   - clusterRoleBinding-notifik-custom-resources.yaml
 ```
+
+### Secrets used by Integrations
+
+The Integration controller watches the Secrets referenced in `.spec.credentials.secretRef`. By default, it caches
+Secrets cluster-wide, so it needs `get`, `list` and `watch` on Secrets in every namespace.
+
+When those Secrets only live in some namespaces, pass them with `--integration-secrets-namespaces`
+(`controller.integrationSecrets.namespaces` in the Helm chart). The controller then caches Secrets only in those
+namespaces, so a namespaced Role there is enough (the chart creates it), and Integrations referencing a Secret
+anywhere else fail to reconcile with an explicit error.
+
+The namespaced Role and RoleBinding only come with the Helm chart. Installs made with kustomize (`make deploy`) keep
+the `manager-role` ClusterRole from `config/rbac`, which reads Secrets cluster-wide, so narrow it yourself if needed.
 
 ## Example
 

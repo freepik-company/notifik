@@ -33,6 +33,15 @@ func (r *IntegrationReconciler) UpdateConditionSuccess(integration *v1alpha1.Int
 	controller.UpdateCondition(&integration.Status.Conditions, condition)
 }
 
+func (r *IntegrationReconciler) UpdateConditionSecretNamespaceNotAllowed(integration *v1alpha1.Integration) {
+
+	//
+	condition := controller.NewCondition(controller.ConditionTypeResourceSynced, metav1.ConditionFalse,
+		controller.ConditionReasonSecretNamespaceNotAllowed, controller.ConditionReasonSecretNamespaceNotAllowedMessage)
+
+	controller.UpdateCondition(&integration.Status.Conditions, condition)
+}
+
 func (r *IntegrationReconciler) UpdateConditionKubernetesApiCallFailure(integration *v1alpha1.Integration) {
 
 	//

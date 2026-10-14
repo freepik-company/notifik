@@ -64,6 +64,21 @@ controller:
   # - --metrics-cert-key="tls.key"
   extraArgs: []
 
+  # Restrict where the Secrets referenced by Integrations in '.spec.credentials.secretRef' can live.
+  # By default (empty list), the controller caches Secrets cluster-wide, so it needs get/list/watch
+  # on Secrets in every namespace (granted by 'customClusterRole' above).
+  # When set, Secrets are only cached in these namespaces: Integrations pointing anywhere else fail
+  # to reconcile, and get/list/watch on Secrets is only needed in these namespaces.
+  # Remember to drop 'secrets' from 'customClusterRole.rules' if nothing else needs it cluster-wide
+  integrationSecrets:
+    namespaces: []
+    # - notifik
+
+    rbac:
+      # Specifies whether a Role and a RoleBinding granting get/list/watch on Secrets
+      # should be created in each of the namespaces above
+      create: true
+
   # Define a list of environment variables used inside the controller
   # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#use-configmap-defined-environment-variables-in-pod-commands
   # - name: SPECIAL_LEVEL_KEY

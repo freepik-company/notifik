@@ -32,6 +32,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -77,6 +78,7 @@ func main() {
 	var tlsOpts []func(*tls.Config)
 
 	var informerDurationToResync time.Duration
+	var integrationSecretsNamespaces string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -98,6 +100,9 @@ func main() {
 
 	//
 	flag.DurationVar(&informerDurationToResync, "informer-duration-to-resync", 300*time.Second, "Duration to wait until resyncing all the objects by informers")
+	flag.StringVar(&integrationSecretsNamespaces, "integration-secrets-namespaces", "",
+		"Comma-separated list of namespaces where Secrets referenced by Integrations can live. "+
+			"When set, Secrets are only cached (and need RBAC) in those namespaces. Empty means all namespaces.")
 
 	opts := zap.Options{
 		Development: true,
@@ -196,8 +201,21 @@ func main() {
 		})
 	}
 
+	// Restrict the Secrets cache to the given namespaces, if any. By default, they are cached cluster-wide
+	secretsNamespaces, err := integrations.ParseSecretsNamespaces(integrationSecretsNamespaces)
+	if err != nil {
+		setupLog.Error(err, "invalid value for flag --integration-secrets-namespaces")
+		os.Exit(1)
+	}
+	if len(secretsNamespaces) > 0 {
+		setupLog.Info("restricting Integration credentials Secrets to namespaces", "namespaces", secretsNamespaces)
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
+		Scheme: scheme,
+		Cache: cache.Options{
+			ByObject: integrations.SecretsCacheByObject(secretsNamespaces),
+		},
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
@@ -245,7 +263,9 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 
-		Options: integrations.IntegrationControllerOptions{},
+		Options: integrations.IntegrationControllerOptions{
+			SecretsNamespaces: secretsNamespaces,
+		},
 		Dependencies: integrations.IntegrationControllerDependencies{
 			IntegrationsRegistry: integrationsReg,
 		},
